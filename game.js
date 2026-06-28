@@ -76,6 +76,8 @@
   let universeJumpTimer = null;
   let pickupToast = null;
   let lastHealthFrame = -99999;
+  let bombCharges = 0;
+  let deployedMines = [];
 
   const PLAYER_MAX_HP = 4;
   const MAX_LIVES = 5;
@@ -85,6 +87,9 @@
   const HEALTH_BOSS_CHANCE = 0.35;
   const ENEMY_BULLET_SPEED_SCALE = 0.72;
   const BOSS_ANCHOR_Y = H * 0.30;
+  const MAX_DEPLOYED_MINES = 3;
+  const MINE_FALL_SPEED = 2.8;
+  const MINE_BOSS_DAMAGE = 4;
 
   const player = {
     x: W / 2, y: H - 80,
@@ -198,8 +203,8 @@
       icon: "speed", duration: 480, weight: 2,
     },
     bomb: {
-      label: "炸弹", fullName: "全屏炸弹", shortDesc: "清屏",
-      desc: "立即消灭屏幕上所有普通敌机",
+      label: "炸药", fullName: "炸药包", shortDesc: "储备+1",
+      desc: "获得 1 枚炸药储备，按 B 在屏幕布设下行地雷（预判 Boss 位置）",
       color: "#f39c12", bgColor: "#3a2200", borderColor: "#f5b041",
       icon: "bomb", duration: 0, weight: 1,
     },
@@ -481,6 +486,7 @@
     bullets = []; enemyBullets = []; enemies = [];
     powerUps = []; particles = []; floatingTexts = [];
     allies = []; flybys = [];
+    deployedMines = [];
     mouseTarget = null; mouseMarker = null;
     pickupToast = null;
   }
@@ -502,6 +508,7 @@
     stageAllySpawned = false;
     stageRebelSpawned = false;
     lastHealthFrame = -99999;
+    bombCharges = 0;
     clearTimeout(universeJumpTimer);
     universeJumpTimer = null;
     applyUniverseTheme(0);
@@ -520,6 +527,7 @@
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
+    bombCharges = 0;
     invincibleUntil = frame + 90;
     playerHp = PLAYER_MAX_HP;
     const uni = themes.getUniverseIndex(n);
@@ -990,6 +998,70 @@
     pickupToast = { text: `获得【${cfg.fullName}】— ${cfg.desc}`, color: cfg.color, life: 150, maxLife: 150 };
   }
 
+  function deployMine() {
+    if (gameState !== "playing" || respawnAnim) return;
+    if (bombCharges <= 0) {
+      showFloatingText(player.x, player.y - 40, "无炸药储备", "#7a9ab8", 50);
+      return;
+    }
+    if (deployedMines.length >= MAX_DEPLOYED_MINES) {
+      showFloatingText(player.x, player.y - 40, `地雷已达上限 (${MAX_DEPLOYED_MINES})`, "#7a9ab8", 50);
+      return;
+    }
+    const boss = enemies.find((e) => e.isBoss);
+    const dropX = boss
+      ? Math.max(20, Math.min(W - 20, boss.x))
+      : Math.max(20, Math.min(W - 20, player.x));
+    bombCharges--;
+    deployedMines.push({
+      x: dropX,
+      y: player.y - 24,
+      width: 22,
+      height: 22,
+      speed: MINE_FALL_SPEED,
+      life: 540,
+      pulse: Math.random() * Math.PI * 2,
+    });
+    audio.playShoot();
+    showFloatingText(player.x, player.y - 48, `地雷布设 · 储备 ${bombCharges}`, "#f39c12", 55);
+    updateHUD();
+  }
+
+  function detonateMine(mine, enemy) {
+    spawnParticles(mine.x, mine.y, "#f39c12", enemy?.isBoss ? 28 : 18);
+    audio.playExplode();
+    if (enemy) {
+      if (enemy.isBoss) {
+        enemy.hp -= MINE_BOSS_DAMAGE;
+        showFloatingText(mine.x, mine.y - 12, `地雷命中! -${MINE_BOSS_DAMAGE}`, "#ffd700", 55);
+        if (enemy.hp <= 0) killEnemy(enemy);
+      } else {
+        enemy.hp = 0;
+        killEnemy(enemy);
+      }
+    } else {
+      showFloatingText(mine.x, mine.y, "地雷引爆", "#f39c12", 40);
+    }
+  }
+
+  function updateMines() {
+    deployedMines = deployedMines.filter((mine) => {
+      mine.y += mine.speed;
+      mine.life--;
+      mine.pulse += 0.14;
+      if (mine.life <= 0) return false;
+
+      for (const enemy of enemies) {
+        if (rectOverlap(mine, enemy)) {
+          detonateMine(mine, enemy);
+          return false;
+        }
+      }
+      return mine.y < H + 50;
+    });
+    enemies = enemies.filter((e) => e.hp > 0);
+  }
+
   function applyPowerUp(type) {
     const cfg = POWERUP_TYPES[type];
     audio.playPickup();
@@ -1001,25 +1073,8 @@
       case "shield": buffs.shield = Math.max(buffs.shield, cfg.duration); break;
       case "speed": buffs.speed = Math.max(buffs.speed, cfg.duration); syncPlayerSpeed(); break;
       case "bomb":
-        enemies.filter((e) => !e.isBoss).forEach((e) => {
-          spawnParticles(e.x, e.y, e.color, 8);
-          if (e.rebelPursuer) {
-            registerRebelPursuerKill();
-          } else if (countsTowardStageGoal(e)) {
-            stageKills++;
-            totalScore += e.score;
-            stageScore += e.score;
-          } else {
-            totalScore += e.score;
-            stageScore += e.score;
-          }
-        });
-        enemies = enemies.filter((e) => e.isBoss);
-        enemyBullets = [];
-        spawnParticles(W / 2, H / 2, "#f39c12", 40);
-        audio.playExplode();
-        updateHUD();
-        checkStageComplete();
+        bombCharges++;
+        showFloatingText(player.x, player.y - 48, `炸药储备 +1（共 ${bombCharges}）· 按 B 布设地雷`, cfg.color, 75);
         break;
       case "health":
         if (playerHp < PLAYER_MAX_HP) {
@@ -1243,6 +1298,7 @@
   function updateBullets() {
     bullets = bullets.filter((b) => { b.y -= b.speed; if (b.angle) b.x += Math.sin(b.angle) * b.speed * 0.3; return b.y > -30; });
     enemyBullets = enemyBullets.filter((b) => { b.x += b.vx; b.y += b.vy; return b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20; });
+    updateMines();
   }
 
   function tryStageEvents() {
@@ -1750,6 +1806,37 @@
     ctx.restore();
   }
 
+  function drawMines() {
+    deployedMines.forEach((mine) => {
+      const pulse = 1 + Math.sin(mine.pulse) * 0.12;
+      ctx.save();
+      ctx.translate(mine.x, mine.y);
+      ctx.shadowColor = "#f39c12";
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = "#3a2200";
+      ctx.strokeStyle = "#f5b041";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#f39c12";
+      ctx.beginPath();
+      ctx.moveTo(0, -14 * pulse);
+      ctx.lineTo(3, -8 * pulse);
+      ctx.lineTo(-3, -8 * pulse);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#ff0";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -16 * pulse);
+      ctx.quadraticCurveTo(4, -20 * pulse, 0, -22 * pulse);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
   function drawBullets() {
     bullets.forEach((b) => {
       const grad = ctx.createLinearGradient(b.x, b.y - b.height / 2, b.x, b.y + b.height / 2);
@@ -1838,6 +1925,7 @@
     flybys.forEach(drawFlyby);
     powerUps.forEach(drawPowerUp);
     enemies.forEach(drawEnemy);
+    drawMines();
     drawBullets();
     drawPlayer();
     drawMouseMarker();
@@ -1997,6 +2085,10 @@
     if (e.key === "m" || e.key === "M") {
       const muted = audio.toggleMute();
       if (muteBtn) muteBtn.textContent = muted ? "🔇" : "🔊";
+    }
+    if ((e.key === "b" || e.key === "B") && gameState === "playing") {
+      e.preventDefault();
+      deployMine();
     }
   });
   document.addEventListener("keyup", (e) => { keys[e.key] = false; });
