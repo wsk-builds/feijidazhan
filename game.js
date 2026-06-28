@@ -18,6 +18,7 @@
   const statLivesEl = document.getElementById("statLives");
   const levelEl = document.getElementById("level");
   const bombChargesEl = document.getElementById("bombCharges");
+  const missileChargesEl = document.getElementById("missileCharges");
 
   const universeJumpOverlay = document.getElementById("universeJumpOverlay");
   const jumpBossNameEl = document.getElementById("jumpBossName");
@@ -79,6 +80,7 @@
   let pickupToast = null;
   let lastHealthFrame = -99999;
   let bombCharges = 0;
+  let missileCharges = 0;
   let deployedMines = [];
   let playerMissiles = [];
 
@@ -95,6 +97,9 @@
   const MINE_FALL_SPEED = 2.8;
   const MINE_BOSS_DAMAGE = 4;
   const STAGE_VICTORY_PAUSE_FRAMES = 78;
+  const ENEMY_BULLET_SOFT_CAP = 36;
+  const ENEMY_BULLET_HARD_CAP = 52;
+  const BOSS_FAN_REDUCE_AT = 40;
 
   const player = {
     x: W / 2, y: H - 80,
@@ -108,6 +113,9 @@
   const TRAIL_MAX = 14;
 
   const buffs = { power: 0, shield: 0, speed: 0, laser: 0 };
+  const buffStacks = { power: 0, shield: 0, speed: 0, laser: 0 };
+  const MAX_BUFF_STACK = 3;
+  const BUFF_LABELS = { power: "三连火力", shield: "能量护盾", speed: "推进加速", laser: "穿透激光" };
 
   let bullets = [];
   let enemyBullets = [];
@@ -211,7 +219,7 @@
       label: "炸药", fullName: "炸药包", shortDesc: "储备+1",
       desc: "获得 1 枚炸药储备，按 B 在屏幕布设下行地雷（预判 Boss 位置）",
       color: "#f39c12", bgColor: "#3a2200", borderColor: "#f5b041",
-      icon: "bomb", duration: 0, weight: 1,
+      icon: "bomb", duration: 0, weight: 2,
     },
     health: {
       label: "回血", fullName: "耐久补给", shortDesc: "耐久+1",
@@ -232,10 +240,10 @@
       icon: "laser", duration: 480, weight: 2,
     },
     missile: {
-      label: "导弹", fullName: "追踪导弹", shortDesc: "3 枚齐射",
-      desc: "立即发射 3 枚追踪导弹，优先锁定 Boss",
+      label: "导弹", fullName: "追踪导弹", shortDesc: "储备+1",
+      desc: "获得 1 次导弹齐射储备，按 V 发射 3 枚追踪导弹（优先锁定 Boss）",
       color: "#ff6b35", bgColor: "#3a1500", borderColor: "#ff8c42",
-      icon: "missile", duration: 0, weight: 1,
+      icon: "missile", duration: 0, weight: 2,
     },
   };
 
@@ -292,7 +300,7 @@
       enemyPool: [{ type: "scout", weight: 0.55 }, { type: "interceptor", weight: 0.45 }],
       dropChance: 0.09,
       powerupPool: ["power", "shield", "speed", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 1, missile: 1 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 2, missile: 2 },
       allyMission: false, rebelFlyby: false,
       tip: "拦截机加入战场，注意走位",
     },
@@ -310,7 +318,7 @@
       enemyPool: [{ type: "interceptor", weight: 0.3 }, { type: "gunship", weight: 0.7 }],
       dropChance: 0.08,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 1, missile: 1 },
+      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 2, missile: 2 },
       allyMission: false, rebelFlyby: false,
       tip: "炮艇会开火，优先击毁",
     },
@@ -337,7 +345,7 @@
       enemyPool: [{ type: "gunship", weight: 0.35 }, { type: "carrier", weight: 0.65 }],
       dropChance: 0.07,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2, missile: 1 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 3, missile: 3 },
       allyMission: false, rebelFlyby: false,
       tip: "母舰编队压境，达标后关底 Boss 登场",
     },
@@ -346,7 +354,7 @@
       enemyPool: [{ type: "meteor", weight: 0.5 }, { type: "wraith", weight: 0.5 }],
       dropChance: 0.065,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 2, missile: 1 },
+      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 3, missile: 3 },
       allyMission: true, rebelFlyby: false,
       tip: "重型陨石舰横冲直撞",
     },
@@ -355,7 +363,7 @@
       enemyPool: [{ type: "carrier", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
       dropChance: 0.08,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 2, missile: 2 },
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 4, missile: 4 },
       allyMission: false, rebelFlyby: true,
       tip: "雷暴走廊，弹幕密集",
     },
@@ -397,7 +405,7 @@
       enemyPool: pool,
       dropChance: Math.max(0.05, 0.07 - tier * 0.002),
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2, missile: 1 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 3, missile: 3 },
       allyMission: tier % 2 === 0,
       rebelFlyby: tier % 3 === 1,
       tip: "无尽深空，难度持续攀升",
@@ -445,11 +453,48 @@
 
   function resetBuffs() {
     buffs.power = buffs.shield = buffs.speed = buffs.laser = 0;
+    buffStacks.power = buffStacks.shield = buffStacks.speed = buffStacks.laser = 0;
     syncPlayerSpeed();
   }
 
+  function applyTimedBuff(key, duration) {
+    const cfg = POWERUP_TYPES[key];
+    const wasActive = buffs[key] > 0;
+    if (wasActive) {
+      buffStacks[key] = Math.min(MAX_BUFF_STACK, buffStacks[key] + 1);
+    } else {
+      buffStacks[key] = 1;
+    }
+    buffs[key] = duration;
+    if (wasActive && buffStacks[key] > 1) {
+      showFloatingText(player.x, player.y - 62, `${BUFF_LABELS[key]} x${buffStacks[key]} 强化!`, cfg.color, 80);
+    }
+    if (key === "speed") syncPlayerSpeed();
+  }
+
+  function getSpeedMultiplier() {
+    if (buffs.speed <= 0) return 1;
+    if (buffStacks.speed >= 3) return 2.15;
+    if (buffStacks.speed >= 2) return 1.95;
+    return 1.75;
+  }
+
+  function getSpeedBonusLabel() {
+    if (buffs.speed <= 0) return "";
+    if (buffStacks.speed >= 3) return " (+115%)";
+    if (buffStacks.speed >= 2) return " (+95%)";
+    return " (+75%)";
+  }
+
+  function getLaserDamage() {
+    if (buffs.laser <= 0) return 0;
+    if (buffStacks.laser >= 3) return 5;
+    if (buffStacks.laser >= 2) return 4;
+    return 3;
+  }
+
   function syncPlayerSpeed() {
-    player.speed = buffs.speed > 0 ? player.baseSpeed * 1.75 : player.baseSpeed;
+    player.speed = player.baseSpeed * getSpeedMultiplier();
   }
 
   function getPlayerCollider() {
@@ -464,27 +509,34 @@
     const hasPower = buffs.power > 0;
     if (hasLaser && hasPower) return 8;
     if (hasLaser) return 8;
-    if (hasPower) return 10;
+    if (hasPower) return buffStacks.power >= 2 ? 8 : 10;
     return 14;
   }
 
   function getWeaponModeText() {
-    const hasLaser = buffs.laser > 0;
-    const hasPower = buffs.power > 0;
-    if (hasLaser && hasPower) return "激光 + 三连散射";
-    if (hasLaser) return "穿透激光";
-    if (hasPower) return "三连散射";
-    return "标准单发";
+    const parts = [];
+    if (buffs.laser > 0) {
+      parts.push(buffStacks.laser > 1 ? `穿透激光 x${buffStacks.laser}` : "穿透激光");
+    }
+    if (buffs.power > 0) {
+      parts.push(buffStacks.power > 1 ? `三连散射 x${buffStacks.power}` : "三连散射");
+    }
+    return parts.length ? parts.join(" + ") : "标准单发";
   }
 
   function getBurstDamage() {
-    const hasLaser = buffs.laser > 0;
-    const hasPower = buffs.power > 0;
     let total = 0;
-    if (hasLaser) total += 3;
-    if (hasPower) total += 1 + 1 + 1 + 2;
-    if (!hasLaser && !hasPower) total = 1;
+    if (buffs.laser > 0) total += getLaserDamage();
+    if (buffs.power > 0) {
+      total += 1 + 1 + 1 + 2;
+      if (buffStacks.power >= 3) total += 2;
+    }
+    if (!buffs.laser && !buffs.power) total = 1;
     return total;
+  }
+
+  function formatBuffStack(key) {
+    return buffStacks[key] > 1 ? ` x${buffStacks[key]}` : "";
   }
 
   function getFireRateText() {
@@ -536,6 +588,7 @@
     stageVictoryDelay = -1;
     lastHealthFrame = -99999;
     bombCharges = 0;
+    missileCharges = 0;
     clearTimeout(universeJumpTimer);
     universeJumpTimer = null;
     applyUniverseTheme(0);
@@ -613,18 +666,21 @@
       bombChargesEl.textContent = bombCharges > 0 ? `💣×${bombCharges}` : "—";
       bombChargesEl.style.color = bombCharges > 0 ? "#f39c12" : "rgba(140,190,230,0.45)";
     }
+    if (missileChargesEl) {
+      missileChargesEl.textContent = missileCharges > 0 ? `🚀×${missileCharges}` : "—";
+      missileChargesEl.style.color = missileCharges > 0 ? "#ff6b35" : "rgba(140,190,230,0.45)";
+    }
     if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
 
     const active = [];
-    if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s`);
-    if (buffs.shield > 0) active.push(`🛡护盾${Math.ceil(buffs.shield / 60)}s`);
-    if (buffs.speed > 0) active.push(`⚡加速${Math.ceil(buffs.speed / 60)}s`);
-    if (buffs.laser > 0) active.push(`💜激光${Math.ceil(buffs.laser / 60)}s`);
+    if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s${formatBuffStack("power")}`);
+    if (buffs.shield > 0) active.push(`🛡护盾${Math.ceil(buffs.shield / 60)}s${formatBuffStack("shield")}`);
+    if (buffs.speed > 0) active.push(`⚡加速${Math.ceil(buffs.speed / 60)}s${formatBuffStack("speed")}`);
+    if (buffs.laser > 0) active.push(`💜激光${Math.ceil(buffs.laser / 60)}s${formatBuffStack("laser")}`);
     if (buffEl) buffEl.textContent = active.length ? active.join(" ") : "—";
 
     if (statSpeed) {
-      const speedBonus = buffs.speed > 0 ? " (+75%)" : "";
-      statSpeed.textContent = `${player.speed.toFixed(1)}${speedBonus}`;
+      statSpeed.textContent = `${player.speed.toFixed(1)}${getSpeedBonusLabel()}`;
       statSpeed.style.color = buffs.speed > 0 ? "#58d68d" : "#e8f4ff";
     }
     if (statWeapon) statWeapon.textContent = getWeaponModeText();
@@ -635,7 +691,8 @@
     if (statFireRate) statFireRate.textContent = getFireRateText();
     if (statShield) {
       if (buffs.shield > 0) {
-        statShield.textContent = `激活 (${Math.ceil(buffs.shield / 60)}s)`;
+        const layers = buffStacks.shield > 1 ? ` · ${buffStacks.shield} 层` : "";
+        statShield.textContent = `激活 (${Math.ceil(buffs.shield / 60)}s${layers})`;
         statShield.style.color = "#5dade2";
       } else {
         statShield.textContent = "无";
@@ -658,8 +715,9 @@
           const remain = buffs[b.key];
           const pct = Math.min(100, (remain / b.max) * 100);
           const secs = Math.ceil(remain / 60);
+          const stack = formatBuffStack(b.key);
           return `<div class="buff-card" style="--buff-color:${b.color}">
-            <div class="buff-card-name">${b.name}</div>
+            <div class="buff-card-name">${b.name}${stack}</div>
             <div class="buff-card-bar"><div class="buff-card-bar-fill" style="width:${pct}%"></div></div>
             <div class="buff-card-time">剩余 ${secs} 秒</div>
           </div>`;
@@ -1073,7 +1131,6 @@
         trail: [],
       });
     }
-    showFloatingText(player.x, player.y - 56, "追踪导弹发射!", "#ff6b35", 70);
   }
 
   function updateMissiles() {
@@ -1156,6 +1213,18 @@
     updateHUD();
   }
 
+  function fireMissileSalvo() {
+    if (gameState !== "playing" || respawnAnim) return;
+    if (missileCharges <= 0) {
+      showFloatingText(player.x, player.y - 40, "无导弹储备", "#7a9ab8", 50);
+      return;
+    }
+    missileCharges--;
+    launchHomingMissiles(3);
+    showFloatingText(player.x, player.y - 48, `导弹齐射 · 储备 ${missileCharges}`, "#ff6b35", 55);
+    updateHUD();
+  }
+
   function detonateMine(mine, enemy) {
     spawnParticles(mine.x, mine.y, "#f39c12", enemy?.isBoss ? 28 : 18);
     audio.playExplode();
@@ -1198,9 +1267,9 @@
     showFloatingText(player.x, player.y - 50, cfg.fullName, cfg.color, 70);
 
     switch (type) {
-      case "power": buffs.power = Math.max(buffs.power, cfg.duration); break;
-      case "shield": buffs.shield = Math.max(buffs.shield, cfg.duration); break;
-      case "speed": buffs.speed = Math.max(buffs.speed, cfg.duration); syncPlayerSpeed(); break;
+      case "power": applyTimedBuff("power", cfg.duration); break;
+      case "shield": applyTimedBuff("shield", cfg.duration); break;
+      case "speed": applyTimedBuff("speed", cfg.duration); break;
       case "bomb":
         bombCharges++;
         showFloatingText(player.x, player.y - 48, `炸药储备 +1（共 ${bombCharges}）· 按 B 布设地雷`, cfg.color, 75);
@@ -1224,8 +1293,11 @@
           showFloatingText(player.x, player.y - 40, "战机编队已满", "#7a9ab8", 50);
         }
         break;
-      case "laser": buffs.laser = Math.max(buffs.laser, cfg.duration); break;
-      case "missile": launchHomingMissiles(3); break;
+      case "laser": applyTimedBuff("laser", cfg.duration); break;
+      case "missile":
+        missileCharges++;
+        showFloatingText(player.x, player.y - 48, `导弹储备 +1（共 ${missileCharges}）· 按 V 齐射`, cfg.color, 75);
+        break;
     }
     updateHUD();
   }
@@ -1246,19 +1318,29 @@
     if (hasLaser) {
       bullets.push({
         x: player.x, y: py, width: 6, height: 28, speed: 14,
-        damage: 3, piercing: true, color: "#c084fc",
+        damage: getLaserDamage(), piercing: true, color: "#c084fc",
       });
     }
 
     if (hasPower) {
+      const pStack = buffStacks.power;
+      const spreadOffsets = pStack >= 2 ? [-26, 26] : [-18, 18];
       const base = { y: py, width: 4, height: 14, speed: 11, damage: 1, piercing: false, color: "#00e5ff" };
       bullets.push({ ...base, x: player.x });
-      [-18, 18].forEach((offset) => {
+      spreadOffsets.forEach((offset) => {
         bullets.push({
           ...base, x: player.x + offset, width: 3, height: 12, speed: 10,
           angle: offset > 0 ? 0.08 : -0.08,
         });
       });
+      if (pStack >= 3) {
+        [-34, 34].forEach((offset) => {
+          bullets.push({
+            ...base, x: player.x + offset, width: 3, height: 10, speed: 9,
+            angle: offset > 0 ? 0.14 : -0.14,
+          });
+        });
+      }
       bullets.push({
         ...base, x: player.x, y: py - 4, width: 5, height: 10, speed: 12, damage: 2,
       });
@@ -1270,10 +1352,27 @@
     }
   }
 
+  function cullOffscreenEnemyBullets() {
+    enemyBullets = enemyBullets.filter((b) =>
+      b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20
+    );
+  }
+
+  function canSpawnEnemyBullet() {
+    cullOffscreenEnemyBullets();
+    return enemyBullets.length < ENEMY_BULLET_HARD_CAP;
+  }
+
   function enemyShoot(enemy, speed, spread = 0) {
+    if (!canSpawnEnemyBullet()) return false;
     const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x) + spread;
     const spd = speed * ENEMY_BULLET_SPEED_SCALE;
-    enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.height / 2, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, width: 8, height: 8, damage: 1, color: enemy.accent });
+    enemyBullets.push({
+      x: enemy.x, y: enemy.y + enemy.height / 2,
+      vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+      width: 8, height: 8, damage: 1, color: enemy.accent,
+    });
+    return true;
   }
 
   function spawnParticles(x, y, color, count) {
@@ -1293,10 +1392,10 @@
   }
 
   function updateBuffs() {
-    if (buffs.power > 0) buffs.power--;
-    if (buffs.shield > 0) buffs.shield--;
-    if (buffs.speed > 0) buffs.speed--;
-    if (buffs.laser > 0) buffs.laser--;
+    if (buffs.power > 0) { buffs.power--; } else { buffStacks.power = 0; }
+    if (buffs.shield > 0) { buffs.shield--; } else { buffStacks.shield = 0; }
+    if (buffs.speed > 0) { buffs.speed--; } else { buffStacks.speed = 0; }
+    if (buffs.laser > 0) { buffs.laser--; } else { buffStacks.laser = 0; }
     syncPlayerSpeed();
     if (pickupToast) { pickupToast.life--; if (pickupToast.life <= 0) pickupToast = null; }
   }
@@ -1497,11 +1596,22 @@
 
       if (cfg.shootInterval) {
         e.shootTimer = (e.shootTimer || 0) + 1;
-        if (e.shootTimer >= cfg.shootInterval) {
+        let interval = cfg.shootInterval;
+        if (!e.isBoss && enemyBullets.length >= ENEMY_BULLET_SOFT_CAP) {
+          interval = Math.ceil(interval * 1.6);
+        }
+        if (e.shootTimer >= interval) {
           e.shootTimer = 0;
-          if (e.pattern === "boss_storm" || e.pattern === "boss_lava" || e.pattern === "boss_matrix") {
-            [-0.3, -0.15, 0, 0.15, 0.3].forEach((s) => enemyShoot(e, e.bulletSpeed, s));
-          } else enemyShoot(e, e.bulletSpeed || 3);
+          if (!e.isBoss && enemyBullets.length >= ENEMY_BULLET_SOFT_CAP) {
+            // 弹幕接近软上限，普通敌机本轮停火
+          } else if (e.pattern === "boss_storm" || e.pattern === "boss_lava" || e.pattern === "boss_matrix") {
+            const spreads = enemyBullets.length >= BOSS_FAN_REDUCE_AT
+              ? [-0.2, 0, 0.2]
+              : [-0.3, -0.15, 0, 0.15, 0.3];
+            spreads.forEach((s) => enemyShoot(e, e.bulletSpeed, s));
+          } else {
+            enemyShoot(e, e.bulletSpeed || 3);
+          }
         }
       }
       if (cfg.spawnInterval) {
@@ -1612,7 +1722,8 @@
       }
       if (Math.random() < BOSS_DROP_CHANCE) spawnPowerUp(enemy.x, enemy.y);
       if (Math.random() < BOSS_DROP_CHANCE * 0.4) spawnPowerUp(enemy.x + 25, enemy.y);
-      if (Math.random() < 0.28) spawnPowerUp(enemy.x - 20, enemy.y + 15, "missile");
+      if (Math.random() < 0.42) spawnPowerUp(enemy.x - 20, enemy.y + 15, "missile");
+      if (Math.random() < 0.25) spawnPowerUp(enemy.x + 15, enemy.y + 20, "bomb");
     } else {
       if (playerHp === 1 && canOfferHealth() && Math.random() < HEALTH_CRITICAL_CHANCE) {
         trySpawnHealthDrop(enemy.x, enemy.y);
@@ -1627,10 +1738,16 @@
 
   function damagePlayer() {
     if (frame < invincibleUntil) return false;
-    if (buffs.shield > 0) {
-      buffs.shield = 0; invincibleUntil = frame + 90;
+    if (buffs.shield > 0 && buffStacks.shield > 0) {
+      buffStacks.shield--;
+      invincibleUntil = frame + 90;
       spawnParticles(player.x, player.y, "#3498db", 18);
-      showFloatingText(player.x, player.y - 30, "护盾破碎!", "#3498db", 50);
+      if (buffStacks.shield <= 0) {
+        buffs.shield = 0;
+        showFloatingText(player.x, player.y - 30, "护盾破碎!", "#3498db", 50);
+      } else {
+        showFloatingText(player.x, player.y - 30, `护盾抵挡! 剩余 ${buffStacks.shield} 层`, "#3498db", 55);
+      }
       audio.playHit(); updateHUD(); return true;
     }
     playerHp--;
@@ -2297,6 +2414,10 @@
     if ((e.key === "b" || e.key === "B") && gameState === "playing") {
       e.preventDefault();
       deployMine();
+    }
+    if ((e.key === "v" || e.key === "V") && gameState === "playing") {
+      e.preventDefault();
+      fireMissileSalvo();
     }
   });
   document.addEventListener("keyup", (e) => { keys[e.key] = false; });

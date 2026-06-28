@@ -38,6 +38,11 @@
               <span id="bombCharges" class="hud-bomb-value">—</span>
             </div>
             <div class="hud-divider"></div>
+            <div class="hud-item hud-missiles">
+              <span class="label">导弹</span>
+              <span id="missileCharges" class="hud-missile-value">—</span>
+            </div>
+            <div class="hud-divider"></div>
             <div class="hud-item">
               <span class="label">关卡</span>
               <span id="level">1</span>
@@ -61,7 +66,7 @@
           <div class="panel panel-start">
             <h1 id="gameTitle">飞机大战</h1>
             <p class="subtitle">暗影刺客 · 直插<span id="subtitleSecret" class="subtitle-secret">敌方</span>要塞</p>
-            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动 · B 布设地雷</p>
+            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动 · B 地雷 · V 导弹</p>
             <button id="startBtn" class="btn btn-primary">开始游戏</button>
             <button id="openManualBtn" class="text-link" type="button">查看游戏说明</button>
           </div>
@@ -161,7 +166,8 @@
               <li><strong>1 命 = 1 架飞机</strong>；耐久归零后若有备用机，会播放换机过场并替换同款新机上阵</li>
               <li>初始 <strong>3 命</strong>，每 3 关奖励 +1 命（上限 5）；可拾取「备用战机」道具</li>
               <li>进入下一关时当前飞机耐久回满；命与累计得分在关卡间保留</li>
-              <li>跨关继承：炸药储备、未过期的增益（护盾/加速/火力/激光），以及关末未拾取的掉落物会带入下一关</li>
+              <li>跨关继承：炸药/导弹储备、未过期的增益（护盾/加速/火力/激光），以及关末未拾取的掉落物会带入下一关</li>
+              <li>重复拾取<strong>同类型时限道具</strong>（如两个三连火力）会叠层强化，最高 x3</li>
             </ul>
           </section>
 
@@ -172,6 +178,7 @@
               <li><strong>鼠标点击</strong>画布：战机自动飞往目标位置（与键盘可切换）</li>
               <li><kbd>空格</kbd>：手动射击（游戏也会自动射击）</li>
               <li><kbd>B</kbd>：布设下行地雷（需先有炸药储备，最多同时 3 枚，自动瞄准 Boss 横向位置）</li>
+              <li><kbd>V</kbd>：发射追踪导弹齐射（需先有导弹储备，每次消耗 1 次储备发射 3 枚）</li>
               <li><kbd>M</kbd>：开关音效 · <kbd>H</kbd>：打开本说明</li>
             </ul>
             <p>你驾驶的是代号 <strong>Ω-7 暗影刺客</strong>：机体小巧、碰撞体积极小、移速极快，适合深入敌后斩首行动。右侧「战机状态」面板实时显示移速、火力、伤害、射速与当前增益。</p>
@@ -180,7 +187,7 @@
 
           <section class="manual-section">
             <h2>道具一览</h2>
-            <p class="manual-note">多种道具效果<strong>可叠加</strong>，不会互相覆盖。例：激光 + 火力 = 同时发射激光与散射弹。</p>
+            <p class="manual-note">不同种类道具可并存（例：激光 + 火力）。<strong>同类型时限道具</strong>在生效期间再次拾取会叠层强化（最高 x3），并刷新持续时间。</p>
             <table class="manual-table">
               <thead>
                 <tr><th>道具</th><th>效果</th><th>持续时间</th><th>获取方式</th></tr>
@@ -188,19 +195,19 @@
               <tbody>
                 <tr>
                   <td style="color:#ff4757">三连火力</td>
-                  <td>三连散射 + 强化弹，单轮伤害 5</td>
+                  <td>散射 + 强化弹；叠层 x2 加宽散射/射速，x3 再加侧翼弹</td>
                   <td>10 秒</td>
-                  <td>击落敌机 6% 随机 · 友军任务 · 击败 Boss</td>
+                  <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
                 <tr>
                   <td style="color:#3498db">能量护盾</td>
-                  <td>抵挡 1 次伤害（护盾破碎后消失）</td>
+                  <td>抵挡伤害；x2 挡 2 次，x3 挡 3 次</td>
                   <td>8 秒</td>
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
                 <tr>
                   <td style="color:#2ecc71">推进加速</td>
-                  <td>移速 +75%</td>
+                  <td>移速 +75%；x2 +95%，x3 +115%</td>
                   <td>8 秒</td>
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
@@ -212,13 +219,13 @@
                 </tr>
                 <tr>
                   <td style="color:#ff6b35">追踪导弹</td>
-                  <td>立即发射 3 枚追踪导弹，优先锁定 Boss</td>
-                  <td>即时</td>
-                  <td>击落敌机随机 · 击败 Boss（28%）</td>
+                  <td>导弹储备 +1；按 <kbd>V</kbd> 齐射 3 枚，优先锁定 Boss</td>
+                  <td>储备制</td>
+                  <td>击落敌机随机 · 击败 Boss（42% 额外掉落）</td>
                 </tr>
                 <tr>
                   <td style="color:#a855f7">穿透激光</td>
-                  <td>穿透弹，伤害 ×3</td>
+                  <td>穿透高伤；x2 伤害 4，x3 伤害 5</td>
                   <td>8 秒</td>
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
