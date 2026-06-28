@@ -69,7 +69,8 @@ body {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 0 14px;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 
 .hud-item:first-child {
@@ -358,16 +359,11 @@ body {
 }
 
 .overlay.hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 0.4s ease,
-    backdrop-filter 0.4s ease,
-    visibility 0s linear 0.4s;
+  display: none !important;
 }
 
-.overlay.is-exiting {
+#overlay.is-exiting {
+  display: flex !important;
   opacity: 0;
   backdrop-filter: blur(0px);
   pointer-events: none;
@@ -389,7 +385,7 @@ body {
     filter 0.55s ease;
 }
 
-.overlay.is-exiting .panel {
+#overlay.is-exiting .panel {
   transform: scale(0.9) translateY(18px);
   opacity: 0;
   filter: blur(6px);

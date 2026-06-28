@@ -11,7 +11,7 @@
   const scoreEl = document.getElementById("score");
   const livesEl = document.getElementById("lives");
   const levelEl = document.getElementById("level");
-  const stageProgressEl = document.getElementById("stageProgress");
+
   const stageClearOverlay = document.getElementById("stageClearOverlay");
   const clearedStageEl = document.getElementById("clearedStage");
   const clearedStageNameEl = document.getElementById("clearedStageName");
@@ -157,6 +157,32 @@
   };
 
   const BOSS_DROP_CHANCE = 0.65;
+
+  const ALL_OVERLAYS = [overlay, stageClearOverlay, gameOverOverlay, manualOverlay].filter(Boolean);
+
+  function hideAllOverlays() {
+    ALL_OVERLAYS.forEach((el) => {
+      el.classList.add("hidden");
+      el.classList.remove("is-exiting");
+    });
+  }
+
+  function showOverlay(el) {
+    hideAllOverlays();
+    if (el) el.classList.remove("hidden");
+  }
+
+  if (ctx && !ctx.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function roundRect(x, y, w, h, r) {
+      const radius = typeof r === "number" ? r : r?.[0] || 0;
+      this.moveTo(x + radius, y);
+      this.arcTo(x + w, y, x + w, y + h, radius);
+      this.arcTo(x + w, y + h, x, y + h, radius);
+      this.arcTo(x, y + h, x, y, radius);
+      this.arcTo(x, y, x + w, y, radius);
+      this.closePath();
+    };
+  }
 
   const STAGE_DEFINITIONS = [
     {
@@ -391,13 +417,6 @@
       livesEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : "#00e5ff";
     }
     if (levelEl) levelEl.textContent = stage;
-    if (stageProgressEl) {
-      const goal = def.goalKills;
-      stageProgressEl.textContent = def.boss && stageBossSpawned
-        ? "Boss"
-        : `${stageKills}/${goal}`;
-      stageProgressEl.style.color = stageKills >= goal ? "#8ecdb0" : "#d0e4f8";
-    }
 
     const active = [];
     if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s`);
@@ -633,16 +652,14 @@
     enemyBullets = [];
     clearRebelPursuers();
 
-    if (stageClearOverlay) {
-      const def = getStageDef(stage);
-      if (clearedStageEl) clearedStageEl.textContent = stage;
-      if (clearedStageNameEl) clearedStageNameEl.textContent = def.name;
-      if (stageClearScoreEl) stageClearScoreEl.textContent = stageScore;
-      if (stageClearTotalEl) stageClearTotalEl.textContent = totalScore;
-      const nextDef = getStageDef(stage + 1);
-      if (nextStageNameEl) nextStageNameEl.textContent = nextDef.name;
-      stageClearOverlay.classList.remove("hidden");
-    }
+    const def = getStageDef(stage);
+    if (clearedStageEl) clearedStageEl.textContent = stage;
+    if (clearedStageNameEl) clearedStageNameEl.textContent = def.name;
+    if (stageClearScoreEl) stageClearScoreEl.textContent = stageScore;
+    if (stageClearTotalEl) stageClearTotalEl.textContent = totalScore;
+    const nextDef = getStageDef(stage + 1);
+    if (nextStageNameEl) nextStageNameEl.textContent = nextDef.name;
+    showOverlay(stageClearOverlay);
 
     if (stage % 3 === 0 && lives < MAX_LIVES) {
       lives++;
@@ -652,7 +669,7 @@
   }
 
   function proceedToNextStage() {
-    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
+    hideAllOverlays();
     startStage(stage + 1);
     gameState = "playing";
     audio.startBgm();
@@ -1563,13 +1580,10 @@
   }
 
   function beginPlaying() {
+    hideAllOverlays();
     startStage(stage);
     audio.startBgm();
     gameState = "playing";
-    overlay.classList.add("hidden");
-    overlay.classList.remove("is-exiting");
-    gameOverOverlay.classList.add("hidden");
-    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
     canvas.classList.remove("is-entering");
     if (statsPanel) statsPanel.classList.remove("is-hidden");
   }
@@ -1585,7 +1599,7 @@
     }
 
     gameState = "transition";
-    overlay.classList.remove("hidden");
+    showOverlay(overlay);
     overlay.classList.add("is-exiting");
     canvas.classList.add("is-entering");
     if (statsPanel) statsPanel.classList.add("is-hidden");
@@ -1598,21 +1612,25 @@
     audio.stopBgm();
     if (finalScoreEl) finalScoreEl.textContent = totalScore;
     if (reachedStageEl) reachedStageEl.textContent = stage;
-    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
-    gameOverOverlay.classList.remove("hidden");
+    showOverlay(gameOverOverlay);
   }
 
   function openManual() {
     if (!manualOverlay || gameState === "manual") return;
     stateBeforeManual = gameState;
     gameState = "manual";
-    manualOverlay.classList.remove("hidden");
+    showOverlay(manualOverlay);
   }
 
   function closeManual() {
     if (!manualOverlay) return;
     manualOverlay.classList.add("hidden");
-    if (gameState === "manual") gameState = stateBeforeManual;
+    if (gameState === "manual") {
+      gameState = stateBeforeManual;
+      if (gameState === "menu") showOverlay(overlay);
+      else if (gameState === "stageClear") showOverlay(stageClearOverlay);
+      else if (gameState === "gameover") showOverlay(gameOverOverlay);
+    }
   }
 
   document.addEventListener("keydown", (e) => {
@@ -1695,6 +1713,7 @@
     });
   }
 
+  showOverlay(overlay);
   initBackground();
   render();
   gameLoop();
