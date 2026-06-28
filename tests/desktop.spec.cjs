@@ -96,14 +96,28 @@ function waitForServer(port, timeout = 8000) {
     });
     if (statsAfterStart.hidden) throw new Error("stats panel should be visible during play");
     if (statsAfterStart.display === "none") throw new Error("stats panel display should not be none during play");
-    if (statsAfterStart.position !== "absolute") {
-      throw new Error(`stats panel should be absolute on desktop, got ${statsAfterStart.position}`);
+    if (statsAfterStart.position === "absolute" || statsAfterStart.position === "fixed") {
+      throw new Error(`stats panel should not overlay canvas (got ${statsAfterStart.position})`);
     }
-    if (Math.abs(statsAfterStart.canvasCenterX - statsAfterStart.viewportCenterX) > 8) {
-      throw new Error("canvas should be horizontally centered in viewport");
+    const layoutCheck = await page.evaluate(() => {
+      const canvas = document.getElementById("gameCanvas");
+      const panel = document.getElementById("statsPanel");
+      const wrapper = document.querySelector(".game-wrapper");
+      const canvasBox = canvas?.getBoundingClientRect();
+      const panelBox = panel?.getBoundingClientRect();
+      const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
+      return {
+        gridCols: wrapperStyle?.gridTemplateColumns || "",
+        canvasRight: canvasBox?.right ?? 0,
+        panelLeft: panelBox?.left ?? 0,
+        overlap: canvasBox && panelBox ? panelBox.left < canvasBox.right - 2 : true,
+      };
+    });
+    if (layoutCheck.overlap) {
+      throw new Error(`stats panel overlaps canvas (panelLeft=${layoutCheck.panelLeft}, canvasRight=${layoutCheck.canvasRight})`);
     }
-    if (statsAfterStart.panelLeft < statsAfterStart.canvasCenterX) {
-      throw new Error("stats panel should sit to the right of canvas center");
+    if (!layoutCheck.gridCols.includes("480px")) {
+      throw new Error(`game-wrapper should use 480px grid column, got ${layoutCheck.gridCols}`);
     }
 
     await page.evaluate(() => {

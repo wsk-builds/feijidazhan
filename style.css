@@ -88,15 +88,19 @@ body[data-universe="3"] {
 
 .game-wrapper {
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 480px 152px;
+  gap: 16px;
+  width: fit-content;
+  align-items: start;
 }
 
 .game-layout {
+  grid-column: 1;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-width: 0;
 }
 
 .game-main {
@@ -387,17 +391,19 @@ body[data-universe="3"] {
 
 /* ── Stats panel ── */
 .stats-panel {
+  grid-column: 2;
+  grid-row: 1;
   width: 152px;
   padding: 16px 14px;
   background: rgba(8, 16, 32, 0.75);
   border: 1px solid rgba(100, 180, 255, 0.12);
   border-radius: 10px;
   backdrop-filter: blur(8px);
-  position: absolute;
-  left: calc(50% + 240px + 16px);
-  top: 0;
+  align-self: start;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   opacity: 1;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.25s ease;
 }
 
 .stats-panel.is-hidden {
@@ -1385,15 +1391,21 @@ body.is-mobile-ui .manual-section-mobile {
   }
 
   body:not(.is-mobile-ui) .game-wrapper {
-    flex-direction: column;
-    align-items: center;
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  body:not(.is-mobile-ui) .game-layout {
+    grid-column: 1;
   }
 
   body:not(.is-mobile-ui) .stats-panel {
-    position: static;
-    width: 480px;
-    max-width: 94vw;
-    margin-top: 12px;
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    max-width: 480px;
+    margin-top: 0;
   }
 
   body:not(.is-mobile-ui) .stats-panel.is-hidden {

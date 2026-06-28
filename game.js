@@ -1117,20 +1117,109 @@
     clearRebelPursuers();
   }
 
+  function getBossStageProfile(stageNum, isMega) {
+    const s = stageNum;
+    const hpMul = 1 + (s - 1) * (isMega ? 0.05 : 0.04);
+
+    if (isMega) {
+      return {
+        hpMul,
+        pattern: null,
+        shootIntervalCut: Math.floor(s / 5) * 2,
+        spawnIntervalCut: Math.floor(s / 5) * 12,
+      };
+    }
+
+    if (s <= 2) {
+      return {
+        hpMul,
+        pattern: "boss_assault",
+        shootInterval: Math.max(44, 76 - (s - 1) * 2),
+        spawnInterval: null,
+        minionType: null,
+        fanSpreads: null,
+        bulletSpeed: 2.6 + s * 0.1,
+      };
+    }
+    if (s <= 4) {
+      return {
+        hpMul,
+        pattern: "boss_assault",
+        shootInterval: Math.max(44, 72 - (s - 1) * 2),
+        spawnInterval: Math.max(200, 300 - (s - 3) * 15),
+        minionType: "scout",
+        fanSpreads: null,
+        bulletSpeed: 2.7 + s * 0.05,
+      };
+    }
+    if (s <= 7) {
+      return {
+        hpMul,
+        pattern: "boss_assault",
+        shootInterval: Math.max(42, 64 - (s - 6) * 2),
+        spawnInterval: Math.max(180, 260 - (s - 6) * 10),
+        minionType: "scout",
+        fanSpreads: null,
+        bulletSpeed: 2.8 + s * 0.04,
+      };
+    }
+    if (s <= 10) {
+      return {
+        hpMul,
+        pattern: "boss_storm",
+        shootInterval: Math.max(42, 58 - (s - 8) * 2),
+        spawnInterval: 220,
+        minionType: "scout",
+        fanSpreads: [-0.2, 0, 0.2],
+        bulletSpeed: 2.85 + s * 0.03,
+      };
+    }
+    return {
+      hpMul,
+      pattern: "boss_storm",
+      shootInterval: Math.max(42, 52 - (s - 11) * 2),
+      spawnInterval: Math.max(150, 200 - (s - 11) * 5),
+      minionType: "interceptor",
+      fanSpreads: null,
+      bulletSpeed: 3.0 + s * 0.02,
+    };
+  }
+
+  function applyBossStageTuning(boss, cfg, stageNum) {
+    const isMega = boss.bossTier === "mega";
+    const profile = getBossStageProfile(stageNum, isMega);
+
+    boss.hp = Math.round(cfg.hp * profile.hpMul);
+    boss.maxHp = boss.hp;
+
+    if (isMega) {
+      boss.shootInterval = Math.max(38, (cfg.shootInterval || 48) - profile.shootIntervalCut);
+      if (cfg.spawnInterval) {
+        boss.spawnInterval = Math.max(160, cfg.spawnInterval - profile.spawnIntervalCut);
+      }
+      return;
+    }
+
+    boss.pattern = profile.pattern;
+    boss.shootInterval = profile.shootInterval;
+    if (profile.bulletSpeed) boss.bulletSpeed = profile.bulletSpeed;
+    if (profile.fanSpreads) boss.fanSpreads = profile.fanSpreads;
+    else delete boss.fanSpreads;
+    if (profile.spawnInterval) {
+      boss.spawnInterval = profile.spawnInterval;
+      boss.minionType = profile.minionType || "scout";
+    } else {
+      boss.spawnInterval = 0;
+      delete boss.minionType;
+    }
+  }
+
   function spawnEndBoss(bossType) {
     const cfg = getBossConfig(bossType);
     if (!cfg) return;
     const boss = createEnemy(bossType, W / 2, -cfg.height);
     if (!boss) return;
-    if (stage === 2 && bossType === "mini_striker") {
-      boss.hp = Math.round(cfg.hp * 1.4);
-      boss.maxHp = boss.hp;
-      boss.pattern = "boss_storm";
-      boss.shootInterval = 52;
-      boss.bulletSpeed = 3.0;
-      boss.spawnInterval = Math.floor((cfg.spawnInterval || 200) * 0.65);
-      boss.minionType = "interceptor";
-    }
+    applyBossStageTuning(boss, cfg, stage);
     boss.entering = true;
     enemies.push(boss);
     audio.playBoss(boss.bossTier === "mega");
@@ -1900,18 +1989,19 @@
           if (!e.isBoss && enemyBullets.length >= ENEMY_BULLET_SOFT_CAP) {
             // 弹幕接近软上限，普通敌机本轮停火
           } else if (e.pattern === "boss_storm" || e.pattern === "boss_lava" || e.pattern === "boss_matrix") {
-            const spreads = enemyBullets.length >= BOSS_FAN_REDUCE_AT
+            const defaultSpreads = enemyBullets.length >= BOSS_FAN_REDUCE_AT
               ? [-0.2, 0, 0.2]
               : [-0.3, -0.15, 0, 0.15, 0.3];
+            const spreads = e.fanSpreads || defaultSpreads;
             spreads.forEach((s) => enemyShoot(e, e.bulletSpeed, s));
           } else {
             enemyShoot(e, e.bulletSpeed || 3);
           }
         }
       }
-      if (cfg.spawnInterval || e.spawnInterval) {
+      const spawnInterval = e.spawnInterval !== undefined ? e.spawnInterval : cfg.spawnInterval;
+      if (spawnInterval) {
         e.spawnTimer = (e.spawnTimer || 0) + 1;
-        const spawnInterval = e.spawnInterval ?? cfg.spawnInterval;
         if (e.spawnTimer >= spawnInterval && enemies.length < 14) {
           e.spawnTimer = 0;
           const minionType = e.minionType || "scout";
