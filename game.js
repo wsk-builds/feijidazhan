@@ -814,6 +814,10 @@
     return !enemy.rebelPursuer && !enemy.easterEgg && !enemy.isBoss;
   }
 
+  function isStageEnemy(enemy) {
+    return !enemy.rebelPursuer;
+  }
+
   function advanceStageFlow() {
     if (gameState !== "playing") return;
     const def = getStageDef(stage);
@@ -828,6 +832,7 @@
 
     if (stagePhase === "boss") {
       if (enemies.some((e) => e.isBoss)) return;
+      if (enemies.some(isStageEnemy)) return;
       completeStage();
     }
   }
@@ -1500,8 +1505,17 @@
 
     if (stagePhase === "boss") {
       const boss = enemies.find((e) => e.isBoss);
-      ratio = boss ? boss.hp / boss.maxHp : 1;
-      label = `第 ${stage} 关 · 击败 ${def.endBossName}`;
+      const remain = enemies.filter(isStageEnemy).length;
+      if (boss) {
+        ratio = boss.hp / boss.maxHp;
+        label = `第 ${stage} 关 · 击败 ${def.endBossName}`;
+      } else if (remain > 0) {
+        ratio = 1;
+        label = `第 ${stage} 关 · 清剿残敌 · 剩余 ${remain}`;
+      } else {
+        ratio = 1;
+        label = `第 ${stage} 关 · 战场已肃清`;
+      }
     } else {
       ratio = Math.min(1, stageKills / def.goalKills);
       label = `第 ${stage} 关 · ${def.name} · 清剿敌潮`;
