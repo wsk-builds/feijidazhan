@@ -3,8 +3,13 @@
 
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
+  const LOGICAL_W = 480;
+  const LOGICAL_H = 640;
+  const W = LOGICAL_W;
+  const H = LOGICAL_H;
+  const LOGIC_FPS = 60;
+  const LOGIC_MS = 1000 / LOGIC_FPS;
+  const MAX_CATCHUP_STEPS = 3;
   const audio = window.GameAudio;
   const sprites = window.GameSprites;
   const themes = window.GameThemes;
@@ -69,7 +74,8 @@
   const mobileTutorialDismiss = document.getElementById("mobileTutorialDismiss");
 
   const MOBILE_TUTORIAL_KEY = "feijidazhan_mobile_tutorial_v1";
-  const TOUCH_DRAG_LERP = 0.34;
+  const TOUCH_DRAG_LERP = 0.24;
+  const MOBILE_SPEED_SCALE = 0.72;
 
   const keys = {};
   let mouseTarget = null;
@@ -81,6 +87,8 @@
   let touchDrag = { active: false, x: W / 2, y: H - 80, pointerId: null };
   let touchRafId = 0;
   let pendingTouchClient = null;
+  let lastLoopTime = 0;
+  let logicAccum = 0;
   let mobileTutorialPending = false;
   let gameState = "menu";
   let stateBeforeManual = "menu";
@@ -348,6 +356,14 @@
     el.onclick = () => showEasterEggToast(i18n.t("easter.manualNote"));
   }
 
+  function setupCanvasDpr() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    canvas.width = Math.round(LOGICAL_W * dpr);
+    canvas.height = Math.round(LOGICAL_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return dpr;
+  }
+
   function detectMobileUI() {
     const fine = window.matchMedia("(pointer: fine)").matches;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -390,6 +406,7 @@
       statsPanel.classList.add("is-hidden");
       statsPanel.classList.remove("drawer-open");
     }
+    syncPlayerSpeed();
     updateMobileChrome();
     updateLandscapeHint();
   }
@@ -653,7 +670,8 @@
   }
 
   function syncPlayerSpeed() {
-    player.speed = player.baseSpeed * getSpeedMultiplier();
+    const mobileScale = isMobileUI ? MOBILE_SPEED_SCALE : 1;
+    player.speed = player.baseSpeed * mobileScale * getSpeedMultiplier();
   }
 
   function getPlayerCollider() {
@@ -1699,8 +1717,18 @@
       player.x += dx * player.speed;
       player.y += dy * player.speed;
     } else if (isMobileUI && touchDrag.active) {
-      player.x += (touchDrag.x - player.x) * TOUCH_DRAG_LERP;
-      player.y += (touchDrag.y - player.y) * TOUCH_DRAG_LERP;
+      const mdx = (touchDrag.x - player.x) * TOUCH_DRAG_LERP;
+      const mdy = (touchDrag.y - player.y) * TOUCH_DRAG_LERP;
+      const cap = player.speed * 0.85;
+      const dist = Math.hypot(mdx, mdy);
+      if (dist > cap) {
+        const s = cap / dist;
+        player.x += mdx * s;
+        player.y += mdy * s;
+      } else {
+        player.x += mdx;
+        player.y += mdy;
+      }
     } else if (mouseTarget) {
       const mdx = mouseTarget.x - player.x;
       const mdy = mouseTarget.y - player.y;
@@ -2512,7 +2540,21 @@
     updateHUD();
   }
 
-  function gameLoop() { update(); render(); requestAnimationFrame(gameLoop); }
+  function gameLoop(timestamp) {
+    if (!lastLoopTime) lastLoopTime = timestamp;
+    let delta = timestamp - lastLoopTime;
+    lastLoopTime = timestamp;
+    if (delta > 200) delta = LOGIC_MS;
+    logicAccum += delta;
+    let steps = 0;
+    while (logicAccum >= LOGIC_MS && steps < MAX_CATCHUP_STEPS) {
+      update();
+      logicAccum -= LOGIC_MS;
+      steps++;
+    }
+    render();
+    requestAnimationFrame(gameLoop);
+  }
 
   const easterEggToastEl = document.getElementById("easterEggToast");
   const gameTitleEl = document.getElementById("gameTitle");
@@ -2777,6 +2819,7 @@
   });
 
   window.addEventListener("resize", () => {
+    setupCanvasDpr();
     const next = detectMobileUI();
     if (next !== isMobileUI) {
       isMobileUI = next;
@@ -2784,6 +2827,7 @@
       applyMobileUIMode();
       initBackground();
     } else {
+      syncPlayerSpeed();
       updateLandscapeHint();
     }
   });
@@ -2830,6 +2874,7 @@
   if (langZhBtn) langZhBtn.addEventListener("click", () => setLanguage("zh"));
   if (langEnBtn) langEnBtn.addEventListener("click", () => setLanguage("en"));
 
+  setupCanvasDpr();
   isMobileUI = detectMobileUI();
   applyPerfTier();
   applyMobileUIMode();
@@ -2839,5 +2884,5 @@
   showOverlay(overlay);
   applyUniverseTheme(0);
   render();
-  gameLoop();
+  requestAnimationFrame(gameLoop);
 })();

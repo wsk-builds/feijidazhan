@@ -67,16 +67,29 @@ function waitForServer(port, timeout = 8000) {
     const playing = await page.evaluate(() => {
       const tc = document.getElementById("touchControls");
       const canvas = document.getElementById("gameCanvas");
+      const secondary = document.querySelector(".hud-row-secondary");
       if (!tc || !canvas || tc.hidden) return null;
       const tcBox = tc.getBoundingClientRect();
       const canvasBox = canvas.getBoundingClientRect();
       const centerY = tcBox.top + tcBox.height / 2;
       const relY = (centerY - canvasBox.top) / canvasBox.height;
-      return { visible: true, relY };
+      const secStyle = secondary ? getComputedStyle(secondary) : null;
+      return {
+        visible: true,
+        relY,
+        canvasWidth: canvas.width,
+        secondaryVisible: secStyle ? secStyle.display !== "none" : false,
+      };
     });
     if (!playing) throw new Error("touch controls not visible during play");
     if (playing.relY < 0.28 || playing.relY > 0.58) {
       throw new Error(`touch controls should be mid-right (relY ~0.42), got ${playing.relY.toFixed(2)}`);
+    }
+    if (playing.canvasWidth < 480) {
+      throw new Error(`canvas backing store too small: ${playing.canvasWidth}`);
+    }
+    if (!playing.secondaryVisible) {
+      throw new Error("mobile HUD secondary row should be visible");
     }
 
     const canvas = page.locator("#gameCanvas");
