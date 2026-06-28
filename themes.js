@@ -10,7 +10,7 @@ window.GameThemes = (function () {
       megaBossName: "雷暴母舰",
       miniBossNames: ["哨戒巡洋舰", "裂空突击艇", "幽灵指挥艇"],
       easterEggType: "tie_patrol",
-      easterEggChance: 0.025,
+      easterEggChance: 0.012,
       cosmos: {
         hues: [220, 255, 285, 310, 195, 265, 330],
         starTints: ["#9ecfff", "#c4b5fd", "#fcd9b8"],
@@ -59,7 +59,7 @@ window.GameThemes = (function () {
       megaBossName: "熔核巨舰",
       miniBossNames: ["余烬巡洋舰", "熔流突击艇", "灰烬守卫舰"],
       easterEggType: "ember_hunter",
-      easterEggChance: 0.028,
+      easterEggChance: 0.012,
       cosmos: {
         hues: [5, 15, 25, 35, 10, 20, 40],
         starTints: ["#ffb347", "#ff6b35", "#ffd700"],
@@ -108,7 +108,7 @@ window.GameThemes = (function () {
       megaBossName: "生态母舰",
       miniBossNames: ["孢子守卫舰", "藤须突击艇", "苔藓巡洋舰"],
       easterEggType: "spore_scout",
-      easterEggChance: 0.028,
+      easterEggChance: 0.012,
       cosmos: {
         hues: [140, 155, 165, 175, 130, 150, 160],
         starTints: ["#6ee7b7", "#34d399", "#a7f3d0"],
@@ -157,7 +157,7 @@ window.GameThemes = (function () {
       megaBossName: "矩阵主宰",
       miniBossNames: ["霓虹无人机", "故障猎手舰", "像素守卫舰"],
       easterEggType: "holo_drone",
-      easterEggChance: 0.03,
+      easterEggChance: 0.012,
       cosmos: {
         hues: [280, 300, 320, 180, 200, 260, 340],
         starTints: ["#e879f9", "#22d3ee", "#f472b6"],

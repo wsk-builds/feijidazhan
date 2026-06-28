@@ -87,7 +87,8 @@
   const HEALTH_COOLDOWN = 3600;
   const HEALTH_CRITICAL_CHANCE = 0.05;
   const HEALTH_BOSS_CHANCE = 0.35;
-  const ENEMY_BULLET_SPEED_SCALE = 0.72;
+  const ENEMY_BULLET_SPEED_SCALE = 0.55;
+  const EASTER_EGG_QUOTE_CHANCE = 0.12;
   const BOSS_ANCHOR_Y = H * 0.30;
   const MAX_DEPLOYED_MINES = 3;
   const MINE_FALL_SPEED = 2.8;
@@ -1482,6 +1483,22 @@
         }
       }
     });
+    cullOffscreenEnemies();
+  }
+
+  function isOffscreenEnemy(e) {
+    if (e.isBoss || e.entering || e.rebelPursuer) return false;
+    const pad = 40;
+    return e.y > H + e.height / 2 + pad
+      || e.y < -e.height - pad
+      || e.x < -e.width / 2 - pad
+      || e.x > W + e.width / 2 + pad;
+  }
+
+  function cullOffscreenEnemies() {
+    const before = enemies.length;
+    enemies = enemies.filter((e) => !isOffscreenEnemy(e));
+    if (before !== enemies.length) checkStageComplete();
   }
 
   function updateFlybys() {
@@ -1548,10 +1565,12 @@
     if (enemy.rebelPursuer) registerRebelPursuerKill();
 
     if (enemy.easterEgg) {
-      const msg = enemy.type === "dark_interceptor"
-        ? "黑暗先锋舰坠落 — 这不是你父亲的双翼战机…"
-        : "帝国巡逻机清除 — 听起来像有人在远处喊「我是你父亲」？";
-      showFloatingText(enemy.x, enemy.y - 16, msg, enemy.accent, 100);
+      if (Math.random() < EASTER_EGG_QUOTE_CHANCE) {
+        const msg = enemy.type === "dark_interceptor"
+          ? "黑暗先锋舰坠落 — 这不是你父亲的双翼战机…"
+          : "帝国巡逻机清除 — 听起来像有人在远处喊「我是你父亲」？";
+        showFloatingText(enemy.x, enemy.y - 16, msg, enemy.accent, 100);
+      }
       if (enemy.type === "dark_interceptor") spawnPowerUp(enemy.x, enemy.y);
     } else if (enemy.isBoss) {
       showFloatingText(enemy.x, enemy.y, `${enemy.bossName} 击破! +${enemy.score}`, "#ffd700", 90);
