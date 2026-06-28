@@ -61,6 +61,7 @@
   const openManualBtn = document.getElementById("openManualBtn");
   const closeManualBtn = document.getElementById("closeManualBtn");
   const manualFromGameOverBtn = document.getElementById("manualFromGameOverBtn");
+  const gameWrapperEl = document.querySelector(".game-wrapper");
   const statsPanel = document.getElementById("statsPanel");
   const touchControlsEl = document.getElementById("touchControls");
   const bombBtn = document.getElementById("bombBtn");
@@ -77,6 +78,7 @@
   const MOBILE_TUTORIAL_KEY = "feijidazhan_mobile_tutorial_v1";
   const TOUCH_DRAG_LERP = 0.48;
   const SNAP_DIST = 12;
+  const DESKTOP_BASE_SPEED = 8.5;
   const MOBILE_SPEED_SCALE = 0.78;
 
   const keys = {};
@@ -140,7 +142,7 @@
     x: W / 2, y: H - 80,
     width: 28, height: 32,
     hitboxWidth: 18, hitboxHeight: 22,
-    baseSpeed: 8.5, speed: 8.5, shootCooldown: 0,
+    baseSpeed: DESKTOP_BASE_SPEED, speed: DESKTOP_BASE_SPEED, shootCooldown: 0,
     prevX: W / 2, prevY: H - 80,
   };
 
@@ -430,9 +432,11 @@
     if (!statsPanel) return;
     if (isMobileUI) {
       if (!visible) setStatsDrawerOpen(false);
+      if (gameWrapperEl) gameWrapperEl.classList.remove("stats-collapsed");
       return;
     }
     statsPanel.classList.toggle("is-hidden", !visible);
+    if (gameWrapperEl) gameWrapperEl.classList.toggle("stats-collapsed", !visible);
   }
 
   function resumePlayingChrome() {
@@ -677,6 +681,7 @@
   }
 
   function syncPlayerSpeed() {
+    if (!isMobileUI) player.baseSpeed = DESKTOP_BASE_SPEED;
     const mobileScale = isMobileUI ? MOBILE_SPEED_SCALE : 1;
     player.speed = player.baseSpeed * mobileScale * getSpeedMultiplier();
   }

@@ -95,6 +95,11 @@ body[data-universe="3"] {
   align-items: start;
 }
 
+.game-wrapper.stats-collapsed {
+  grid-template-columns: 480px;
+  gap: 0;
+}
+
 .game-layout {
   grid-column: 1;
   display: flex;
