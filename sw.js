@@ -1,4 +1,4 @@
-const CACHE = "feijidazhan-v1";
+const CACHE = "feijidazhan-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,13 @@ const ASSETS = [
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];
+
+const NETWORK_FIRST = ["/index.html", "/style.css", "/game.js", "/i18n.js", "/audio.js", "/sprites.js", "/themes.js"];
+
+function isNetworkFirst(url) {
+  const path = new URL(url).pathname;
+  return NETWORK_FIRST.some((name) => path.endsWith(name));
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,6 +36,22 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  if (isNetworkFirst(event.request.url)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === "basic") {
+            const clone = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request).then((response) => {

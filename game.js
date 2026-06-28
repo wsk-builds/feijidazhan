@@ -61,7 +61,6 @@
   const openManualBtn = document.getElementById("openManualBtn");
   const closeManualBtn = document.getElementById("closeManualBtn");
   const manualFromGameOverBtn = document.getElementById("manualFromGameOverBtn");
-  const gameWrapperEl = document.querySelector(".game-wrapper");
   const statsPanel = document.getElementById("statsPanel");
   const touchControlsEl = document.getElementById("touchControls");
   const bombBtn = document.getElementById("bombBtn");
@@ -432,11 +431,9 @@
     if (!statsPanel) return;
     if (isMobileUI) {
       if (!visible) setStatsDrawerOpen(false);
-      if (gameWrapperEl) gameWrapperEl.classList.remove("stats-collapsed");
       return;
     }
     statsPanel.classList.toggle("is-hidden", !visible);
-    if (gameWrapperEl) gameWrapperEl.classList.toggle("stats-collapsed", !visible);
   }
 
   function resumePlayingChrome() {

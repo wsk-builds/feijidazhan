@@ -10,7 +10,7 @@
   <title data-i18n="ui.gameTitle">飞机大战</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
-  <link rel="stylesheet" href="style.css?v=20260629">
+  <link rel="stylesheet" href="style.css?v=20260629b">
 </head>
 <body>
   <div class="game-wrapper">
@@ -138,9 +138,8 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <aside class="stats-panel is-hidden" id="statsPanel">
+      <aside class="stats-panel is-hidden" id="statsPanel">
       <button id="statsDrawerClose" class="stats-drawer-close" type="button" data-i18n-attr="aria-label:ui.statsCloseAria" hidden>×</button>
       <h2 class="stats-title" data-i18n="ui.statsTitle">战机状态</h2>
       <div class="stat-grid">
@@ -186,7 +185,8 @@
         <p class="buff-empty" data-i18n="ui.buffEmpty">暂无</p>
       </div>
       <span id="buff" class="sr-only">—</span>
-    </aside>
+      </aside>
+    </div>
 
     <div id="manualOverlay" class="overlay manual-overlay hidden">
       <div class="panel manual-panel">
@@ -220,7 +220,7 @@
   <script src="sprites.js"></script>
   <script src="themes.js"></script>
   <script src="i18n.js"></script>
-  <script src="game.js?v=20260629"></script>
+  <script src="game.js?v=20260629b"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

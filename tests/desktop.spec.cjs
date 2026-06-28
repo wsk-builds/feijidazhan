@@ -102,22 +102,38 @@ function waitForServer(port, timeout = 8000) {
     const layoutCheck = await page.evaluate(() => {
       const canvas = document.getElementById("gameCanvas");
       const panel = document.getElementById("statsPanel");
-      const wrapper = document.querySelector(".game-wrapper");
+      const layout = document.querySelector(".game-layout");
+      const gameMain = document.querySelector(".game-main");
       const canvasBox = canvas?.getBoundingClientRect();
       const panelBox = panel?.getBoundingClientRect();
-      const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
+      const layoutStyle = layout ? getComputedStyle(layout) : null;
+      const gameMainStyle = gameMain ? getComputedStyle(gameMain) : null;
+      const panelStyle = panel ? getComputedStyle(panel) : null;
       return {
-        gridCols: wrapperStyle?.gridTemplateColumns || "",
+        layoutDisplay: layoutStyle?.display || "",
+        layoutDir: layoutStyle?.flexDirection || "",
+        gameMainWidth: gameMainStyle?.width || "",
+        panelPosition: panelStyle?.position || "",
         canvasRight: canvasBox?.right ?? 0,
         panelLeft: panelBox?.left ?? 0,
+        gap: (panelBox?.left ?? 0) - (canvasBox?.right ?? 0),
         overlap: canvasBox && panelBox ? panelBox.left < canvasBox.right - 2 : true,
       };
     });
     if (layoutCheck.overlap) {
       throw new Error(`stats panel overlaps canvas (panelLeft=${layoutCheck.panelLeft}, canvasRight=${layoutCheck.canvasRight})`);
     }
-    if (!layoutCheck.gridCols.includes("480px")) {
-      throw new Error(`game-wrapper should use 480px grid column, got ${layoutCheck.gridCols}`);
+    if (layoutCheck.gap < 8) {
+      throw new Error(`expected gap between canvas and stats panel, got ${layoutCheck.gap}px`);
+    }
+    if (layoutCheck.layoutDisplay !== "flex" || layoutCheck.layoutDir !== "row") {
+      throw new Error(`game-layout should be flex row, got ${layoutCheck.layoutDisplay} ${layoutCheck.layoutDir}`);
+    }
+    if (!layoutCheck.gameMainWidth.includes("480")) {
+      throw new Error(`game-main should be 480px wide, got ${layoutCheck.gameMainWidth}`);
+    }
+    if (layoutCheck.panelPosition !== "static") {
+      throw new Error(`stats panel should be static on desktop, got ${layoutCheck.panelPosition}`);
     }
 
     const speedCheck = await page.evaluate(() => ({
@@ -133,72 +149,64 @@ function waitForServer(port, timeout = 8000) {
     await page.waitForTimeout(250);
 
     const collapsedLayout = await page.evaluate(() => {
-      const wrapper = document.querySelector(".game-wrapper");
+      const layout = document.querySelector(".game-layout");
       const panel = document.getElementById("statsPanel");
-      const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
-      const wrapperBox = wrapper?.getBoundingClientRect();
+      const gameMain = document.querySelector(".game-main");
+      const layoutBox = layout?.getBoundingClientRect();
+      const gameMainBox = gameMain?.getBoundingClientRect();
       return {
         panelHidden: panel?.classList.contains("is-hidden"),
-        collapsed: wrapper?.classList.contains("stats-collapsed"),
-        gridCols: wrapperStyle?.gridTemplateColumns || "",
-        wrapperWidth: wrapperBox?.width ?? 0,
+        layoutWidth: layoutBox?.width ?? 0,
+        gameMainWidth: gameMainBox?.width ?? 0,
       };
     });
     if (!collapsedLayout.panelHidden) throw new Error("stats panel should hide when manual overlay opens");
-    if (!collapsedLayout.collapsed) throw new Error("game-wrapper should have stats-collapsed when overlay hides stats");
-    if (!collapsedLayout.gridCols.includes("480px") || collapsedLayout.gridCols.includes("152px")) {
-      throw new Error(`collapsed grid should be single 480px column, got ${collapsedLayout.gridCols}`);
+    if (collapsedLayout.layoutWidth > 490) {
+      throw new Error(`layout should shrink to game-main width when stats hidden, got ${collapsedLayout.layoutWidth}`);
     }
-    if (collapsedLayout.wrapperWidth > 490) {
-      throw new Error(`collapsed wrapper should be ~480px wide, got ${collapsedLayout.wrapperWidth}`);
+    if (collapsedLayout.gameMainWidth > 490) {
+      throw new Error(`game-main should stay ~480px when stats hidden, got ${collapsedLayout.gameMainWidth}`);
     }
 
     await page.click("#closeManualBtn");
     await page.waitForTimeout(250);
 
     const restoredLayout = await page.evaluate(() => {
-      const wrapper = document.querySelector(".game-wrapper");
       const panel = document.getElementById("statsPanel");
-      const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
+      const canvas = document.getElementById("gameCanvas");
+      const canvasBox = canvas?.getBoundingClientRect();
+      const panelBox = panel?.getBoundingClientRect();
       return {
         panelHidden: panel?.classList.contains("is-hidden"),
-        collapsed: wrapper?.classList.contains("stats-collapsed"),
-        gridCols: wrapperStyle?.gridTemplateColumns || "",
+        overlap: canvasBox && panelBox ? panelBox.left < canvasBox.right - 2 : true,
       };
     });
     if (restoredLayout.panelHidden) throw new Error("stats panel should reappear after closing manual");
-    if (restoredLayout.collapsed) throw new Error("stats-collapsed should be removed after closing manual");
-    if (!restoredLayout.gridCols.includes("152px")) {
-      throw new Error(`playing grid should restore stats column after manual, got ${restoredLayout.gridCols}`);
-    }
+    if (restoredLayout.overlap) throw new Error("stats panel should sit beside canvas after closing manual");
 
     await page.evaluate(() => {
       const panel = document.getElementById("statsPanel");
-      const wrapper = document.querySelector(".game-wrapper");
       const clear = document.getElementById("stageClearOverlay");
       if (panel) panel.classList.add("is-hidden");
-      if (wrapper) wrapper.classList.add("stats-collapsed");
       if (clear) clear.classList.remove("hidden");
     });
     await page.click("#nextStageBtn");
     await page.waitForTimeout(400);
 
     const statsAfterNext = await page.evaluate(() => {
-      const wrapper = document.querySelector(".game-wrapper");
-      const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
+      const canvas = document.getElementById("gameCanvas");
+      const panel = document.getElementById("statsPanel");
+      const canvasBox = canvas?.getBoundingClientRect();
+      const panelBox = panel?.getBoundingClientRect();
       return {
-        hidden: document.getElementById("statsPanel")?.classList.contains("is-hidden"),
-        collapsed: wrapper?.classList.contains("stats-collapsed"),
-        gridCols: wrapperStyle?.gridTemplateColumns || "",
+        hidden: panel?.classList.contains("is-hidden"),
+        overlap: canvasBox && panelBox ? panelBox.left < canvasBox.right - 2 : true,
         level: document.getElementById("level")?.textContent,
         statSpeed: document.getElementById("statSpeed")?.textContent?.trim() || "",
       };
     });
     if (statsAfterNext.hidden) throw new Error("stats panel should reappear after proceedToNextStage");
-    if (statsAfterNext.collapsed) throw new Error("stats-collapsed should be removed after proceedToNextStage");
-    if (!statsAfterNext.gridCols.includes("152px")) {
-      throw new Error(`playing grid should restore stats column, got ${statsAfterNext.gridCols}`);
-    }
+    if (statsAfterNext.overlap) throw new Error("stats panel should sit beside canvas after proceedToNextStage");
     if (statsAfterNext.level !== "2") throw new Error(`expected level 2 after next stage, got ${statsAfterNext.level}`);
     if (!statsAfterNext.statSpeed.startsWith("8.5")) {
       throw new Error(`desktop speed should stay 8.5 on stage 2, got ${statsAfterNext.statSpeed}`);
