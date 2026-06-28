@@ -2,11 +2,12 @@
 window.GameSprites = (function () {
   "use strict";
 
-  function initCosmos(W, H, themeCosmos) {
+  function initCosmos(W, H, themeCosmos, densityScale = 1) {
+    const density = Math.max(0.35, Math.min(1, densityScale));
     const starTintPool = themeCosmos?.starTints || ["#9ecfff", "#c4b5fd", "#fcd9b8"];
     const stars = [];
     for (let layer = 0; layer < 5; layer++) {
-      const count = [200, 140, 70, 28, 10][layer];
+      const count = Math.round([200, 140, 70, 28, 10][layer] * density);
       for (let i = 0; i < count; i++) {
         const bright = Math.random();
         stars.push({
@@ -27,7 +28,7 @@ window.GameSprites = (function () {
 
     const nebulae = [];
     const hues = themeCosmos?.hues || [220, 255, 285, 310, 195, 265, 330];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < Math.max(4, Math.round(10 * density)); i++) {
       nebulae.push({
         x: Math.random() * W, y: Math.random() * H,
         radius: 110 + Math.random() * 150,
@@ -42,7 +43,7 @@ window.GameSprites = (function () {
 
     const auroraHues = themeCosmos?.auroraHues || [200, 270, 320];
     const auroras = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < Math.max(1, Math.round(3 * density)); i++) {
       auroras.push({
         x: Math.random() * W,
         y: 40 + Math.random() * H * 0.35,
@@ -56,7 +57,7 @@ window.GameSprites = (function () {
     }
 
     const galaxies = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < Math.max(2, Math.round(4 * density)); i++) {
       galaxies.push({
         x: Math.random() * W, y: Math.random() * H * 0.55,
         radius: 30 + Math.random() * 35,
@@ -81,7 +82,7 @@ window.GameSprites = (function () {
     }
 
     const dust = [];
-    for (let i = 0; i < 55; i++) {
+    for (let i = 0; i < Math.max(20, Math.round(55 * density)); i++) {
       dust.push({
         x: Math.random() * W, y: Math.random() * H,
         size: 0.6 + Math.random() * 2.2,

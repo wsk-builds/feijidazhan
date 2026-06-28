@@ -2,8 +2,14 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#02020a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>飞机大战</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -63,13 +69,29 @@
           </div>
         </header>
 
-        <canvas id="gameCanvas" width="480" height="640"></canvas>
+        <div class="canvas-shell">
+          <canvas id="gameCanvas" width="480" height="640"></canvas>
+          <div id="touchControls" class="touch-controls" hidden>
+            <button id="bombBtn" class="touch-btn touch-btn-bomb" data-no-drag type="button" aria-label="布设地雷">
+              <span class="touch-btn-icon">💣</span>
+              <span id="bombBtnCount" class="touch-btn-badge"></span>
+            </button>
+            <button id="missileBtn" class="touch-btn touch-btn-missile" data-no-drag type="button" aria-label="发射导弹">
+              <span class="touch-btn-icon">🚀</span>
+              <span id="missileBtnCount" class="touch-btn-badge"></span>
+            </button>
+          </div>
+        </div>
+
+        <button id="statsDrawerToggle" class="stats-drawer-toggle" hidden type="button" aria-label="战机状态" aria-expanded="false">⚙</button>
+        <button id="fullscreenBtn" class="fullscreen-btn" hidden type="button" aria-label="全屏" title="全屏">⛶</button>
 
         <div id="overlay" class="overlay">
           <div class="panel panel-start">
             <h1 id="gameTitle">飞机大战</h1>
             <p class="subtitle">暗影刺客 · 直插<span id="subtitleSecret" class="subtitle-secret">敌方</span>要塞</p>
-            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动 · B 地雷 · V 导弹</p>
+            <p class="start-hint start-hint-desktop">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动 · B 地雷 · V 导弹</p>
+            <p class="start-hint start-hint-mobile">关卡制战役 · 3 命换机 · 每机 4 点耐久 · 单指拖动移动 · 侧键地雷/导弹</p>
             <button id="startBtn" class="btn btn-primary">开始游戏</button>
             <button id="openManualBtn" class="text-link" type="button">查看游戏说明</button>
           </div>
@@ -113,6 +135,7 @@
       </div>
 
       <aside class="stats-panel is-hidden" id="statsPanel">
+        <button id="statsDrawerClose" class="stats-drawer-close" type="button" aria-label="收起状态" hidden>×</button>
         <h2 class="stats-title">战机状态</h2>
         <div class="stat-grid">
           <div class="stat-cell">
@@ -182,8 +205,20 @@
             </ul>
           </section>
 
+          <section class="manual-section manual-section-mobile">
+            <h2>手机操作</h2>
+            <ul>
+              <li><strong>单指拖动</strong>画布：战机平滑跟随指尖移动（松手即停）</li>
+              <li>右下角 <strong>💣</strong>：布设下行地雷（需炸药储备，最多 3 枚在场）</li>
+              <li>右下角 <strong>🚀</strong>：发射追踪导弹齐射（每次消耗 1 次储备，齐射 3 枚）</li>
+              <li>左下 <strong>⚙</strong>：展开/收起战机状态与增益面板</li>
+              <li>顶部 <strong>?</strong> / <strong>🔊</strong>：说明与静音；支持竖屏全屏与添加到主屏幕</li>
+            </ul>
+            <p class="manual-note">建议竖屏游玩；拖动时请勿从屏幕边缘外滑入，以免触发系统手势。首次进入会显示简短引导。</p>
+          </section>
+
           <section class="manual-section">
-            <h2>基本操作</h2>
+            <h2>基本操作（桌面）</h2>
             <ul>
               <li><kbd>↑↓←→</kbd> 或 <kbd>WASD</kbd>：移动战机</li>
               <li><strong>鼠标点击</strong>画布：战机自动飞往目标位置（与键盘可切换）</li>
@@ -391,11 +426,34 @@
     </div>
 
     <div id="easterEggToast" class="easter-egg-toast hidden" role="status" aria-live="polite"></div>
+
+    <div id="landscapeHint" class="landscape-hint hidden" role="alert">
+      <p>请旋转设备至<strong>竖屏</strong>以获得最佳体验</p>
+    </div>
+
+    <div id="mobileTutorial" class="mobile-tutorial hidden">
+      <div class="mobile-tutorial-panel">
+        <h2>手机操作指南</h2>
+        <ul>
+          <li>单指在画面上<strong>拖动</strong>，战机跟随指尖</li>
+          <li>点 <strong>💣</strong> 布地雷 · <strong>🚀</strong> 发导弹</li>
+          <li>点 <strong>⚙</strong> 查看战机状态与增益</li>
+        </ul>
+        <button id="mobileTutorialDismiss" class="btn btn-primary" type="button">知道了，开始战斗</button>
+      </div>
+    </div>
   </div>
 
   <script src="audio.js"></script>
   <script src="sprites.js"></script>
   <script src="themes.js"></script>
   <script src="game.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

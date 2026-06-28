@@ -55,10 +55,32 @@
   const closeManualBtn = document.getElementById("closeManualBtn");
   const manualFromGameOverBtn = document.getElementById("manualFromGameOverBtn");
   const statsPanel = document.getElementById("statsPanel");
+  const touchControlsEl = document.getElementById("touchControls");
+  const bombBtn = document.getElementById("bombBtn");
+  const missileBtn = document.getElementById("missileBtn");
+  const bombBtnCountEl = document.getElementById("bombBtnCount");
+  const missileBtnCountEl = document.getElementById("missileBtnCount");
+  const statsDrawerToggle = document.getElementById("statsDrawerToggle");
+  const statsDrawerClose = document.getElementById("statsDrawerClose");
+  const fullscreenBtn = document.getElementById("fullscreenBtn");
+  const landscapeHintEl = document.getElementById("landscapeHint");
+  const mobileTutorialEl = document.getElementById("mobileTutorial");
+  const mobileTutorialDismiss = document.getElementById("mobileTutorialDismiss");
+
+  const MOBILE_TUTORIAL_KEY = "feijidazhan_mobile_tutorial_v1";
+  const TOUCH_DRAG_LERP = 0.34;
 
   const keys = {};
   let mouseTarget = null;
   let mouseMarker = null;
+  let isMobileUI = false;
+  let particleScale = 1;
+  let cosmosDensity = 1;
+  let trailMax = 14;
+  let touchDrag = { active: false, x: W / 2, y: H - 80, pointerId: null };
+  let touchRafId = 0;
+  let pendingTouchClient = null;
+  let mobileTutorialPending = false;
   let gameState = "menu";
   let stateBeforeManual = "menu";
   let totalScore = 0;
@@ -112,7 +134,6 @@
   };
 
   let playerTrail = [];
-  const TRAIL_MAX = 14;
 
   const buffs = { power: 0, shield: 0, speed: 0, laser: 0 };
   const buffStacks = { power: 0, shield: 0, speed: 0, laser: 0 };
@@ -270,15 +291,79 @@
     });
   }
 
+  function detectMobileUI() {
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const narrow = window.matchMedia("(max-width: 768px)").matches;
+    const touch = navigator.maxTouchPoints > 0;
+    return (coarse && narrow) || (touch && narrow && window.innerWidth < 900);
+  }
+
+  function applyPerfTier() {
+    if (isMobileUI) {
+      particleScale = 0.55;
+      cosmosDensity = 0.5;
+      trailMax = 8;
+    } else {
+      particleScale = 1;
+      cosmosDensity = 1;
+      trailMax = 14;
+    }
+  }
+
+  function updateMobileChrome() {
+    if (!isMobileUI) return;
+    const inPlay = gameState === "playing";
+    if (touchControlsEl) touchControlsEl.hidden = !inPlay;
+    if (statsDrawerToggle) statsDrawerToggle.hidden = !inPlay;
+    if (fullscreenBtn) fullscreenBtn.hidden = false;
+    updateTouchBadges();
+  }
+
+  function applyMobileUIMode() {
+    document.body.classList.toggle("is-mobile-ui", isMobileUI);
+    if (statsDrawerClose) statsDrawerClose.hidden = !isMobileUI;
+    if (statsPanel && isMobileUI) {
+      statsPanel.classList.add("is-hidden");
+      statsPanel.classList.remove("drawer-open");
+    }
+    updateMobileChrome();
+    updateLandscapeHint();
+  }
+
+  function updateLandscapeHint() {
+    if (!landscapeHintEl) return;
+    const landscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
+    landscapeHintEl.classList.toggle("hidden", !isMobileUI || !landscape);
+  }
+
+  function setStatsDrawerOpen(open) {
+    if (!statsPanel || !isMobileUI) return;
+    statsPanel.classList.toggle("drawer-open", open);
+    statsPanel.classList.toggle("is-hidden", !open);
+    if (statsDrawerToggle) statsDrawerToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
   function setStatsPanelVisible(visible) {
     if (!statsPanel) return;
+    if (isMobileUI) {
+      if (!visible) setStatsDrawerOpen(false);
+      return;
+    }
     statsPanel.classList.toggle("is-hidden", !visible);
+  }
+
+  function updateTouchBadges() {
+    if (bombBtnCountEl) bombBtnCountEl.textContent = bombCharges > 0 ? String(bombCharges) : "";
+    if (missileBtnCountEl) missileBtnCountEl.textContent = missileCharges > 0 ? String(missileCharges) : "";
+    if (bombBtn) bombBtn.disabled = bombCharges <= 0 || gameState !== "playing";
+    if (missileBtn) missileBtn.disabled = missileCharges <= 0 || gameState !== "playing";
   }
 
   function showOverlay(el) {
     hideAllOverlays();
     if (el) el.classList.remove("hidden");
     setStatsPanelVisible(false);
+    updateMobileChrome();
   }
 
   if (ctx && !ctx.roundRect) {
@@ -425,7 +510,7 @@
   }
 
   function initBackground() {
-    cosmos = sprites.initCosmos(W, H, currentTheme?.cosmos);
+    cosmos = sprites.initCosmos(W, H, currentTheme?.cosmos, cosmosDensity);
   }
 
   function applyThemedEnemyColors() {
@@ -561,6 +646,7 @@
     deployedMines = [];
     playerMissiles = [];
     mouseTarget = null; mouseMarker = null;
+    touchDrag.active = false;
     pickupToast = null;
   }
 
@@ -686,6 +772,7 @@
       statMissilesEl.textContent = missileCharges > 0 ? `🚀×${missileCharges}` : "—";
       statMissilesEl.style.color = missileCharges > 0 ? "#ff6b35" : "#5a7a9a";
     }
+    updateTouchBadges();
     if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
 
     const active = [];
@@ -1392,7 +1479,8 @@
   }
 
   function spawnParticles(x, y, color, count) {
-    for (let i = 0; i < count; i++) {
+    const n = Math.max(1, Math.round(count * particleScale));
+    for (let i = 0; i < n; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = Math.random() * 4 + 1;
       particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 30 + Math.random() * 20, maxLife: 50, color, size: Math.random() * 3 + 1 });
@@ -1429,13 +1517,39 @@
     };
   }
 
-  function setMouseTarget(x, y) {
-    const margin = 20;
-    mouseTarget = {
+  function clampToPlayfield(x, y, margin = 20) {
+    return {
       x: Math.max(margin, Math.min(W - margin, x)),
       y: Math.max(margin, Math.min(H - margin, y)),
     };
+  }
+
+  function setMouseTarget(x, y) {
+    mouseTarget = clampToPlayfield(x, y);
     mouseMarker = { x: mouseTarget.x, y: mouseTarget.y, life: 40, maxLife: 40 };
+  }
+
+  function setTouchDragTarget(clientX, clientY) {
+    const pos = canvasCoords(clientX, clientY);
+    const clamped = clampToPlayfield(pos.x, pos.y);
+    touchDrag.x = clamped.x;
+    touchDrag.y = clamped.y;
+  }
+
+  function scheduleTouchDragUpdate(clientX, clientY) {
+    pendingTouchClient = { x: clientX, y: clientY };
+    if (touchRafId) return;
+    touchRafId = requestAnimationFrame(() => {
+      touchRafId = 0;
+      if (pendingTouchClient) {
+        setTouchDragTarget(pendingTouchClient.x, pendingTouchClient.y);
+        pendingTouchClient = null;
+      }
+    });
+  }
+
+  function isNoDragTarget(el) {
+    return el && el.closest && el.closest("[data-no-drag]");
   }
 
   function getRespawnProgress() {
@@ -1494,9 +1608,13 @@
 
     if (usingKeyboard) {
       mouseTarget = null;
+      touchDrag.active = false;
       if (dx !== 0 && dy !== 0) { const n = 1 / Math.SQRT2; dx *= n; dy *= n; }
       player.x += dx * player.speed;
       player.y += dy * player.speed;
+    } else if (isMobileUI && touchDrag.active) {
+      player.x += (touchDrag.x - player.x) * TOUCH_DRAG_LERP;
+      player.y += (touchDrag.y - player.y) * TOUCH_DRAG_LERP;
     } else if (mouseTarget) {
       const mdx = mouseTarget.x - player.x;
       const mdy = mouseTarget.y - player.y;
@@ -1533,9 +1651,9 @@
     playerTrail = playerTrail
       .map((t) => ({ ...t, life: t.life * (t.boost ? 0.86 : 0.9) }))
       .filter((t) => t.life > 0.04)
-      .slice(0, TRAIL_MAX);
+      .slice(0, trailMax);
 
-    if (mouseMarker) { mouseMarker.life--; if (mouseMarker.life <= 0) mouseMarker = null; }
+    if (!isMobileUI && mouseMarker) { mouseMarker.life--; if (mouseMarker.life <= 0) mouseMarker = null; }
     if (player.shootCooldown > 0) player.shootCooldown--;
     if (keys[" "] || keys["Space"] || frame % 15 === 0) shoot();
   }
@@ -2202,7 +2320,7 @@
   }
 
   function drawMouseMarker() {
-    if (!mouseMarker) return;
+    if (isMobileUI || !mouseMarker) return;
     const a = mouseMarker.life / mouseMarker.maxLife;
     ctx.globalAlpha = a * 0.8;
     ctx.strokeStyle = "#00e5ff";
@@ -2348,13 +2466,36 @@
     showEasterEggToast(pool[Math.floor(Math.random() * pool.length)]);
   }
 
+  function dismissMobileTutorial() {
+    if (!mobileTutorialEl) return;
+    mobileTutorialEl.classList.add("hidden");
+    try { localStorage.setItem(MOBILE_TUTORIAL_KEY, "1"); } catch (_) { /* ignore */ }
+    mobileTutorialPending = false;
+    if (gameState === "tutorial") {
+      gameState = "menu";
+      beginPlaying();
+    }
+  }
+
+  function maybeShowMobileTutorial() {
+    if (!isMobileUI || !mobileTutorialEl) return false;
+    try {
+      if (localStorage.getItem(MOBILE_TUTORIAL_KEY)) return false;
+    } catch (_) { /* ignore */ }
+    mobileTutorialPending = true;
+    mobileTutorialEl.classList.remove("hidden");
+    return true;
+  }
+
   function beginPlaying() {
     hideAllOverlays();
+    if (mobileTutorialEl) mobileTutorialEl.classList.add("hidden");
     startStage(stage);
     audio.startBgm();
     gameState = "playing";
     canvas.classList.remove("is-entering");
     setStatsPanelVisible(true);
+    updateMobileChrome();
   }
 
   function startGame(fromRestart) {
@@ -2363,7 +2504,19 @@
     resetCampaign();
 
     if (fromRestart) {
+      if (maybeShowMobileTutorial()) {
+        gameState = "tutorial";
+        hideAllOverlays();
+        return;
+      }
       beginPlaying();
+      return;
+    }
+
+    if (maybeShowMobileTutorial()) {
+      gameState = "tutorial";
+      hideAllOverlays();
+      overlay.classList.add("hidden");
       return;
     }
 
@@ -2372,6 +2525,15 @@
     overlay.classList.add("is-exiting");
     canvas.classList.add("is-entering");
     setTimeout(() => beginPlaying(), 680);
+  }
+
+  function toggleFullscreen() {
+    const root = document.documentElement;
+    if (!document.fullscreenElement && root.requestFullscreen) {
+      root.requestFullscreen().catch(() => {});
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
   }
 
   function endGame() {
@@ -2398,7 +2560,10 @@
       else if (gameState === "stageClear") showOverlay(stageClearOverlay);
       else if (gameState === "universeJump") showOverlay(universeJumpOverlay);
       else if (gameState === "gameover") showOverlay(gameOverOverlay);
-      else if (gameState === "playing") setStatsPanelVisible(true);
+      else if (gameState === "playing") {
+        setStatsPanelVisible(true);
+        updateMobileChrome();
+      }
     }
   }
 
@@ -2438,12 +2603,48 @@
   document.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
   canvas.addEventListener("click", (e) => {
-    if (gameState !== "playing") return;
+    if (gameState !== "playing" || isMobileUI) return;
     const pos = canvasCoords(e.clientX, e.clientY);
     setMouseTarget(pos.x, pos.y);
   });
 
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  canvas.addEventListener("touchstart", (e) => {
+    if (gameState !== "playing" || !isMobileUI) return;
+    if (isNoDragTarget(e.target)) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    audio.resume();
+    touchDrag.active = true;
+    touchDrag.pointerId = touch.identifier;
+    setTouchDragTarget(touch.clientX, touch.clientY);
+  }, { passive: true });
+
+  canvas.addEventListener("touchmove", (e) => {
+    if (!touchDrag.active || gameState !== "playing" || !isMobileUI) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === touchDrag.pointerId) {
+        scheduleTouchDragUpdate(touch.clientX, touch.clientY);
+        e.preventDefault();
+        break;
+      }
+    }
+  }, { passive: false });
+
+  function endTouchDrag(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === touchDrag.pointerId) {
+        touchDrag.active = false;
+        touchDrag.pointerId = null;
+        pendingTouchClient = null;
+      }
+    }
+  }
+
+  canvas.addEventListener("touchend", endTouchDrag, { passive: true });
+  canvas.addEventListener("touchcancel", endTouchDrag, { passive: true });
 
   startBtn.addEventListener("click", () => startGame(false));
   restartBtn.addEventListener("click", () => startGame(true));
@@ -2458,6 +2659,49 @@
     const muted = audio.toggleMute();
     muteBtn.textContent = muted ? "🔇" : "🔊";
   });
+
+  if (bombBtn) bombBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    audio.resume();
+    if (gameState === "playing") deployMine();
+  });
+
+  if (missileBtn) missileBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    audio.resume();
+    if (gameState === "playing") fireMissileSalvo();
+  });
+
+  if (statsDrawerToggle) statsDrawerToggle.addEventListener("click", () => {
+    const open = !statsPanel?.classList.contains("drawer-open");
+    setStatsDrawerOpen(open);
+  });
+
+  if (statsDrawerClose) statsDrawerClose.addEventListener("click", () => setStatsDrawerOpen(false));
+
+  if (fullscreenBtn) fullscreenBtn.addEventListener("click", () => {
+    audio.resume();
+    toggleFullscreen();
+  });
+
+  if (mobileTutorialDismiss) mobileTutorialDismiss.addEventListener("click", () => {
+    audio.resume();
+    dismissMobileTutorial();
+  });
+
+  window.addEventListener("resize", () => {
+    const next = detectMobileUI();
+    if (next !== isMobileUI) {
+      isMobileUI = next;
+      applyPerfTier();
+      applyMobileUIMode();
+      initBackground();
+    } else {
+      updateLandscapeHint();
+    }
+  });
+
+  window.addEventListener("orientationchange", updateLandscapeHint);
 
   if (gameTitleEl) {
     gameTitleEl.addEventListener("click", () => {
@@ -2494,6 +2738,10 @@
       showEasterEggToast("档案备注：同盟侦察机遭追击时，击落伴随的帝国追击机即可掩护其撤离。友军自带 IFF，子弹会穿透。");
     });
   }
+
+  isMobileUI = detectMobileUI();
+  applyPerfTier();
+  applyMobileUIMode();
 
   showOverlay(overlay);
   applyUniverseTheme(0);
