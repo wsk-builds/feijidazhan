@@ -7,11 +7,23 @@
   const H = canvas.height;
   const audio = window.GameAudio;
   const sprites = window.GameSprites;
+  const themes = window.GameThemes;
 
   const scoreEl = document.getElementById("score");
-  const livesEl = document.getElementById("lives");
+  const playerHpBarEl = document.getElementById("playerHpBar");
+  const playerHpTextEl = document.getElementById("playerHpText");
+  const livesDisplayEl = document.getElementById("livesDisplay");
+  const livesIconsEl = document.getElementById("livesIcons");
+  const statHpEl = document.getElementById("statHp");
+  const statLivesEl = document.getElementById("statLives");
   const levelEl = document.getElementById("level");
 
+  const universeJumpOverlay = document.getElementById("universeJumpOverlay");
+  const jumpBossNameEl = document.getElementById("jumpBossName");
+  const jumpFromUniverseEl = document.getElementById("jumpFromUniverse");
+  const jumpToUniverseEl = document.getElementById("jumpToUniverse");
+  const jumpSkipBtn = document.getElementById("jumpSkipBtn");
+  const universeLabelEl = document.getElementById("universeLabel");
   const stageClearOverlay = document.getElementById("stageClearOverlay");
   const clearedStageEl = document.getElementById("clearedStage");
   const clearedStageNameEl = document.getElementById("clearedStageName");
@@ -48,17 +60,26 @@
   let totalScore = 0;
   let stageScore = 0;
   let stageKills = 0;
+  let playerHp = 4;
   let lives = 3;
+  let respawnAnim = null;
   let stage = 1;
   let frame = 0;
   let invincibleUntil = 0;
+  let stagePhase = "assault";
+  let universeIndex = 0;
+  let currentTheme = themes.getTheme(0);
+  let playerThemePalette = currentTheme.player;
   let stageBossSpawned = false;
   let stageAllySpawned = false;
   let stageRebelSpawned = false;
+  let universeJumpTimer = null;
   let pickupToast = null;
   let lastHealthFrame = -99999;
 
+  const PLAYER_MAX_HP = 4;
   const MAX_LIVES = 5;
+  const RESPAWN_ANIM_FRAMES = 72;
   const HEALTH_COOLDOWN = 3600;
   const HEALTH_CRITICAL_CHANCE = 0.05;
   const HEALTH_BOSS_CHANCE = 0.35;
@@ -109,13 +130,51 @@
       shootInterval: 80, bulletSpeed: 2.6, noRotate: true, patrolDrift: true,
       easterEgg: true, codename: "黑暗先锋舰",
     },
+    ember_hunter: {
+      width: 30, height: 28, hp: 2, speed: 1.0, score: 888,
+      color: "#7c2d12", accent: "#fb923c", pattern: "ember_hunter",
+      shootInterval: 90, bulletSpeed: 2.5, noRotate: true, patrolDrift: true,
+      easterEgg: true, codename: "余烬猎手",
+    },
+    spore_scout: {
+      width: 32, height: 30, hp: 2, speed: 0.95, score: 888,
+      color: "#14532d", accent: "#4ade80", pattern: "spore_scout",
+      shootInterval: 0, noRotate: true, patrolDrift: true,
+      easterEgg: true, codename: "孢子侦察艇",
+    },
+    holo_drone: {
+      width: 26, height: 26, hp: 1, speed: 1.2, score: 777,
+      color: "#312e81", accent: "#22d3ee", pattern: "holo_drone",
+      shootInterval: 100, bulletSpeed: 2.8, noRotate: true, patrolDrift: true,
+      easterEgg: true, codename: "全息无人机",
+    },
   };
 
-  const BOSS_TYPES = {
-    assault: { width: 72, height: 64, hp: 28, speed: 0.32, score: 3000, color: "#c0392b", accent: "#ff6b6b", pattern: "boss_assault", shootInterval: 60, bulletSpeed: 3.0, name: "重装突击者" },
-    commander: { width: 68, height: 58, hp: 20, speed: 0.42, score: 2500, color: "#8e44ad", accent: "#d4a5ff", pattern: "boss_commander", shootInterval: 0, spawnInterval: 165, name: "幻影指挥舰" },
-    storm: { width: 80, height: 70, hp: 38, speed: 0.28, score: 5000, color: "#2980b9", accent: "#74c0fc", pattern: "boss_storm", shootInterval: 52, bulletSpeed: 2.8, name: "雷暴母舰" },
+  const MINI_BOSS_TYPES = {
+    mini_sentry: { width: 54, height: 48, hp: 16, speed: 0.38, score: 1200, color: "#c0392b", accent: "#ff6b6b", pattern: "boss_assault", shootInterval: 70, bulletSpeed: 2.8, name: "哨戒巡洋舰" },
+    mini_striker: { width: 52, height: 46, hp: 14, speed: 0.42, score: 1100, color: "#8e44ad", accent: "#d4a5ff", pattern: "boss_commander", shootInterval: 0, spawnInterval: 200, name: "裂空突击艇" },
+    mini_phantom: { width: 56, height: 50, hp: 18, speed: 0.35, score: 1400, color: "#2980b9", accent: "#74c0fc", pattern: "boss_storm", shootInterval: 58, bulletSpeed: 2.7, name: "幽灵指挥艇" },
+    mini_ember: { width: 54, height: 48, hp: 16, speed: 0.4, score: 1250, color: "#b45309", accent: "#fb923c", pattern: "boss_assault", shootInterval: 68, bulletSpeed: 2.9, name: "余烬巡洋舰" },
+    mini_magma: { width: 52, height: 46, hp: 15, speed: 0.43, score: 1150, color: "#9a3412", accent: "#f97316", pattern: "boss_commander", shootInterval: 0, spawnInterval: 195, name: "熔流突击艇" },
+    mini_ash: { width: 56, height: 50, hp: 19, speed: 0.34, score: 1450, color: "#dc2626", accent: "#fcd34d", pattern: "boss_storm", shootInterval: 56, bulletSpeed: 2.8, name: "灰烬守卫舰" },
+    mini_spore: { width: 54, height: 48, hp: 16, speed: 0.37, score: 1220, color: "#047857", accent: "#34d399", pattern: "boss_assault", shootInterval: 72, bulletSpeed: 2.7, name: "孢子守卫舰" },
+    mini_vine: { width: 52, height: 46, hp: 14, speed: 0.41, score: 1120, color: "#065f46", accent: "#6ee7b7", pattern: "boss_commander", shootInterval: 0, spawnInterval: 205, name: "藤须突击艇" },
+    mini_moss: { width: 56, height: 50, hp: 18, speed: 0.36, score: 1420, color: "#15803d", accent: "#a3e635", pattern: "boss_storm", shootInterval: 57, bulletSpeed: 2.6, name: "苔藓巡洋舰" },
+    mini_neon: { width: 54, height: 48, hp: 15, speed: 0.44, score: 1180, color: "#c026d3", accent: "#e879f9", pattern: "boss_assault", shootInterval: 65, bulletSpeed: 3.0, name: "霓虹无人机" },
+    mini_glitch: { width: 52, height: 46, hp: 14, speed: 0.45, score: 1100, color: "#7c3aed", accent: "#22d3ee", pattern: "boss_commander", shootInterval: 0, spawnInterval: 190, name: "故障猎手舰" },
+    mini_pixel: { width: 56, height: 50, hp: 17, speed: 0.38, score: 1380, color: "#be185d", accent: "#f472b6", pattern: "boss_storm", shootInterval: 54, bulletSpeed: 2.9, name: "像素守卫舰" },
   };
+
+  const MEGA_BOSS_TYPES = {
+    mega_storm: { width: 96, height: 82, hp: 58, speed: 0.26, score: 8000, color: "#2980b9", accent: "#74c0fc", pattern: "boss_storm", shootInterval: 48, bulletSpeed: 2.9, name: "雷暴母舰" },
+    mega_lava: { width: 100, height: 86, hp: 62, speed: 0.24, score: 8500, color: "#b45309", accent: "#fb923c", pattern: "boss_lava", shootInterval: 50, bulletSpeed: 3.0, name: "熔核巨舰" },
+    mega_eco: { width: 98, height: 84, hp: 60, speed: 0.25, score: 8200, color: "#047857", accent: "#34d399", pattern: "boss_eco", shootInterval: 52, bulletSpeed: 2.8, name: "生态母舰", spawnInterval: 210 },
+    mega_matrix: { width: 102, height: 88, hp: 65, speed: 0.28, score: 9000, color: "#7c3aed", accent: "#e879f9", pattern: "boss_matrix", shootInterval: 44, bulletSpeed: 3.1, name: "矩阵主宰" },
+  };
+
+  function getBossConfig(type) {
+    return MINI_BOSS_TYPES[type] || MEGA_BOSS_TYPES[type];
+  }
 
   const POWERUP_TYPES = {
     power: {
@@ -143,10 +202,16 @@
       icon: "bomb", duration: 0, weight: 1,
     },
     health: {
-      label: "回血", fullName: "生命补给", shortDesc: "生命+1",
-      desc: "恢复 1 点生命（稀有掉落，满血或冷却中无法获得）",
+      label: "回血", fullName: "耐久补给", shortDesc: "耐久+1",
+      desc: "恢复 1 点战机耐久（稀有掉落，满耐久或冷却中无法获得）",
       color: "#ff6b9d", bgColor: "#3a1028", borderColor: "#ff85b3",
       icon: "health", duration: 0, weight: 0,
+    },
+    life: {
+      label: "备机", fullName: "备用战机", shortDesc: "命+1",
+      desc: "增加 1 架同款备用战机（命耗尽时自动替换上场，上限 5）",
+      color: "#fbbf24", bgColor: "#3a2800", borderColor: "#fcd34d",
+      icon: "life", duration: 0, weight: 0,
     },
     laser: {
       label: "激光", fullName: "穿透激光", shortDesc: "穿透高伤",
@@ -158,7 +223,17 @@
 
   const BOSS_DROP_CHANCE = 0.65;
 
-  const ALL_OVERLAYS = [overlay, stageClearOverlay, gameOverOverlay, manualOverlay].filter(Boolean);
+  const BASE_ENEMY_COLORS = {};
+  Object.keys(ENEMY_TYPES).forEach((k) => {
+    BASE_ENEMY_COLORS[k] = { color: ENEMY_TYPES[k].color, accent: ENEMY_TYPES[k].accent };
+  });
+  const BASE_POWERUP_STYLES = {};
+  Object.keys(POWERUP_TYPES).forEach((k) => {
+    const p = POWERUP_TYPES[k];
+    BASE_POWERUP_STYLES[k] = { color: p.color, bgColor: p.bgColor, borderColor: p.borderColor };
+  });
+
+  const ALL_OVERLAYS = [overlay, stageClearOverlay, universeJumpOverlay, gameOverOverlay, manualOverlay].filter(Boolean);
 
   function hideAllOverlays() {
     ALL_OVERLAYS.forEach((el) => {
@@ -186,13 +261,13 @@
 
   const STAGE_DEFINITIONS = [
     {
-      name: "前哨渗透", goalKills: 10, spawnRate: 84,
+      name: "前哨渗透", goalKills: 10, spawnRate: 68,
       enemyPool: [{ type: "scout", weight: 1 }],
       dropChance: 0.1,
       powerupPool: ["power", "shield", "speed"],
       powerupWeights: { power: 3, shield: 3, speed: 2 },
-      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: null,
-      tip: "击破 10 架侦察机，潜入敌前沿",
+      allyMission: false, rebelFlyby: false,
+      tip: "击破 10 架侦察机，小怪持续来袭，达标后关底 Boss 登场",
     },
     {
       name: "乱流峡谷", goalKills: 14, spawnRate: 76,
@@ -200,7 +275,7 @@
       dropChance: 0.09,
       powerupPool: ["power", "shield", "speed", "bomb"],
       powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 1 },
-      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: null,
+      allyMission: false, rebelFlyby: false,
       tip: "拦截机加入战场，注意走位",
     },
     {
@@ -209,8 +284,8 @@
       dropChance: 0.085,
       powerupPool: ["power", "shield", "speed", "laser"],
       powerupWeights: { power: 2, shield: 2, speed: 2, laser: 2 },
-      easterEgg: { tie_patrol: 0.02 }, allyMission: true, rebelFlyby: false, boss: null,
-      tip: "幻影机蛇形移动 · 偶现帝国巡逻彩蛋",
+      allyMission: true, rebelFlyby: false,
+      tip: "幻影机蛇形移动 · 偶现宇宙彩蛋敌机",
     },
     {
       name: "炮艇封锁线", goalKills: 18, spawnRate: 68,
@@ -218,7 +293,7 @@
       dropChance: 0.08,
       powerupPool: ["power", "shield", "speed", "laser", "bomb"],
       powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 1 },
-      easterEgg: { tie_patrol: 0.025 }, allyMission: false, rebelFlyby: false, boss: null,
+      allyMission: false, rebelFlyby: false,
       tip: "炮艇会开火，优先击毁",
     },
     {
@@ -227,8 +302,8 @@
       dropChance: 0.09,
       powerupPool: ["power", "shield", "speed", "laser"],
       powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2 },
-      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: "assault",
-      tip: "清剿敌机后，重装突击者 Boss 登场",
+      allyMission: false, rebelFlyby: false,
+      tip: "本关镇守大 Boss，达标后立即决战",
     },
     {
       name: "幽灵宙域", goalKills: 20, spawnRate: 64,
@@ -236,7 +311,7 @@
       dropChance: 0.075,
       powerupPool: ["power", "shield", "speed", "laser"],
       powerupWeights: { power: 2, shield: 2, speed: 2, laser: 3 },
-      easterEgg: { tie_patrol: 0.03 }, allyMission: true, rebelFlyby: true, boss: null,
+      allyMission: true, rebelFlyby: true,
       tip: "幽灵舰出没 · 可能遭遇同盟侦察彩蛋",
     },
     {
@@ -245,8 +320,8 @@
       dropChance: 0.07,
       powerupPool: ["power", "shield", "speed", "laser", "bomb"],
       powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
-      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: "commander",
-      tip: "幻影指挥舰率援军而来",
+      allyMission: false, rebelFlyby: false,
+      tip: "母舰编队压境，达标后关底 Boss 登场",
     },
     {
       name: "陨石风暴带", goalKills: 24, spawnRate: 56,
@@ -254,8 +329,8 @@
       dropChance: 0.065,
       powerupPool: ["power", "shield", "speed", "laser", "bomb"],
       powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 2 },
-      easterEgg: { dark_interceptor: 0.012 }, allyMission: true, rebelFlyby: false, boss: null,
-      tip: "重型陨石舰 · 稀有黑暗先锋彩蛋",
+      allyMission: true, rebelFlyby: false,
+      tip: "重型陨石舰横冲直撞",
     },
     {
       name: "雷暴核心", goalKills: 18, spawnRate: 58,
@@ -263,15 +338,31 @@
       dropChance: 0.08,
       powerupPool: ["power", "shield", "speed", "laser", "bomb"],
       powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 2 },
-      easterEgg: { tie_patrol: 0.02, dark_interceptor: 0.008 }, allyMission: false, rebelFlyby: true, boss: "storm",
-      tip: "终极试炼：雷暴母舰镇守此关",
+      allyMission: false, rebelFlyby: true,
+      tip: "雷暴走廊，弹幕密集",
     },
   ];
 
+  function enrichStageDef(base, n) {
+    const uni = themes.getUniverseIndex(n);
+    const theme = themes.getTheme(uni);
+    const bossName = themes.getEndBossName(n);
+    const isMega = themes.isMegaStage(n);
+    return {
+      ...base,
+      universeIndex: uni,
+      theme,
+      endBossType: themes.getEndBossType(n),
+      endBossName: bossName,
+      isMegaStage: isMega,
+      easterEgg: { [theme.easterEggType]: theme.easterEggChance },
+      tip: base.tip || `清剿 ${base.goalKills} 架敌机，达标后 ${bossName} 登场`,
+    };
+  }
+
   function getStageDef(n) {
-    if (n <= STAGE_DEFINITIONS.length) return STAGE_DEFINITIONS[n - 1];
+    if (n <= STAGE_DEFINITIONS.length) return enrichStageDef(STAGE_DEFINITIONS[n - 1], n);
     const tier = n - STAGE_DEFINITIONS.length;
-    const bosses = ["assault", "commander", "storm"];
     const pool = [
       { type: "scout", weight: 0.15 },
       { type: "interceptor", weight: 0.15 },
@@ -281,23 +372,18 @@
       { type: "carrier", weight: 0.1 },
       { type: "meteor", weight: 0.1 },
     ];
-    return {
-      name: `深空战区 ${n}`,
+    return enrichStageDef({
+      name: `${themes.getTheme(themes.getUniverseIndex(n)).name} · 战区 ${n}`,
       goalKills: 20 + tier * 4,
       spawnRate: Math.max(42, 58 - tier * 2),
       enemyPool: pool,
       dropChance: Math.max(0.05, 0.07 - tier * 0.002),
       powerupPool: ["power", "shield", "speed", "laser", "bomb"],
       powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
-      easterEgg: {
-        tie_patrol: 0.015 + tier * 0.002,
-        dark_interceptor: tier >= 2 ? 0.006 : 0,
-      },
       allyMission: tier % 2 === 0,
       rebelFlyby: tier % 3 === 1,
-      boss: tier % 4 === 0 ? bosses[Math.floor(tier / 4) % bosses.length] : null,
       tip: "无尽深空，难度持续攀升",
-    };
+    }, n);
   }
 
   function getStageDropChance() {
@@ -305,7 +391,38 @@
   }
 
   function initBackground() {
-    cosmos = sprites.initCosmos(W, H);
+    cosmos = sprites.initCosmos(W, H, currentTheme?.cosmos);
+  }
+
+  function applyThemedEnemyColors() {
+    Object.keys(BASE_ENEMY_COLORS).forEach((type) => {
+      if (ENEMY_TYPES[type]) Object.assign(ENEMY_TYPES[type], BASE_ENEMY_COLORS[type]);
+    });
+    const overrides = currentTheme?.enemies || {};
+    Object.keys(overrides).forEach((type) => {
+      if (ENEMY_TYPES[type]) Object.assign(ENEMY_TYPES[type], overrides[type]);
+    });
+  }
+
+  function applyThemedPowerupColors() {
+    Object.keys(BASE_POWERUP_STYLES).forEach((type) => {
+      if (POWERUP_TYPES[type]) Object.assign(POWERUP_TYPES[type], BASE_POWERUP_STYLES[type]);
+    });
+    const overrides = currentTheme?.powerups || {};
+    Object.keys(overrides).forEach((type) => {
+      if (POWERUP_TYPES[type]) Object.assign(POWERUP_TYPES[type], overrides[type]);
+    });
+  }
+
+  function applyUniverseTheme(index) {
+    universeIndex = index % themes.UNIVERSE_THEMES.length;
+    currentTheme = themes.getTheme(universeIndex);
+    playerThemePalette = currentTheme.player;
+    document.body.dataset.universe = String(universeIndex);
+    if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
+    applyThemedEnemyColors();
+    applyThemedPowerupColors();
+    initBackground();
   }
 
   function resetBuffs() {
@@ -375,16 +492,20 @@
 
   function resetCampaign() {
     totalScore = 0; stageScore = 0; stageKills = 0;
-    lives = 3; stage = 1; frame = 0;
+    playerHp = PLAYER_MAX_HP; lives = 3; stage = 1; frame = 0;
+    respawnAnim = null;
     invincibleUntil = 0;
+    stagePhase = "assault";
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
     lastHealthFrame = -99999;
+    clearTimeout(universeJumpTimer);
+    universeJumpTimer = null;
+    applyUniverseTheme(0);
     resetBuffs();
     clearBattlefield();
     resetPlayerPosition();
-    initBackground();
     updateHUD();
   }
 
@@ -393,30 +514,65 @@
     stageScore = 0;
     stageKills = 0;
     frame = 0;
+    stagePhase = "assault";
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
     invincibleUntil = frame + 90;
+    playerHp = PLAYER_MAX_HP;
+    const uni = themes.getUniverseIndex(n);
+    if (uni !== universeIndex) applyUniverseTheme(uni);
     clearBattlefield();
     resetBuffs();
     resetPlayerPosition();
-    initBackground();
 
     const def = getStageDef(stage);
-    showFloatingText(W / 2, H / 2 - 20, `第 ${stage} 关`, "#00e5ff", 95);
-    showFloatingText(W / 2, H / 2 + 8, def.name, "#ffd700", 100);
-    showFloatingText(W / 2, H / 2 + 36, def.tip, "#8ecdb0", 90);
+    const ui = currentTheme.ui;
+    showFloatingText(W / 2, H / 2 - 28, currentTheme.name, ui.floatingWave, 95);
+    showFloatingText(W / 2, H / 2 - 4, `第 ${stage} 关`, ui.floatingWave, 95);
+    showFloatingText(W / 2, H / 2 + 20, def.name, ui.floatingBoss, 100);
+    showFloatingText(W / 2, H / 2 + 44, def.tip, "#8ecdb0", 90);
     updateHUD();
   }
 
   function updateHUD() {
     const def = getStageDef(stage);
     scoreEl.textContent = totalScore;
-    livesEl.textContent = lives;
-    if (livesEl) {
-      livesEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : "#00e5ff";
+    if (playerHpBarEl) {
+      const accent = currentTheme?.ui?.hudAccent || "#00e5ff";
+      const warn = playerHp <= 1 ? "#ff6b6b" : playerHp <= 2 ? "#ffd93d" : accent;
+      playerHpBarEl.innerHTML = Array.from({ length: PLAYER_MAX_HP }, (_, i) => {
+        const filled = i < playerHp;
+        const cls = filled ? "hp-pip is-filled" : "hp-pip";
+        const style = filled ? ` style="--pip-color:${warn}"` : "";
+        return `<span class="${cls}"${style}></span>`;
+      }).join("");
+    }
+    if (playerHpTextEl) {
+      playerHpTextEl.textContent = `${playerHp}/${PLAYER_MAX_HP}`;
+      playerHpTextEl.style.color = playerHp <= 1 ? "#ff6b6b" : playerHp <= 2 ? "#ffd93d" : "rgba(200,230,255,0.75)";
+    }
+    if (livesDisplayEl) {
+      livesDisplayEl.textContent = String(lives);
+      livesDisplayEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : (currentTheme?.ui?.hudAccent || "#00e5ff");
+    }
+    if (livesIconsEl) {
+      const accent = currentTheme?.ui?.hudAccent || "#00e5ff";
+      livesIconsEl.innerHTML = Array.from({ length: MAX_LIVES }, (_, i) => {
+        const active = i < lives;
+        return `<span class="life-pip${active ? " is-active" : ""}" style="${active ? `--pip-color:${accent}` : ""}"></span>`;
+      }).join("");
+    }
+    if (statHpEl) {
+      statHpEl.textContent = `${playerHp} / ${PLAYER_MAX_HP}`;
+      statHpEl.style.color = playerHp <= 1 ? "#ff6b6b" : playerHp <= 2 ? "#ffd93d" : "#e8f4ff";
+    }
+    if (statLivesEl) {
+      statLivesEl.textContent = String(lives);
+      statLivesEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : "#e8f4ff";
     }
     if (levelEl) levelEl.textContent = stage;
+    if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
 
     const active = [];
     if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s`);
@@ -472,12 +628,22 @@
   }
 
   function canOfferHealth() {
-    return lives < MAX_LIVES && frame - lastHealthFrame >= HEALTH_COOLDOWN;
+    return playerHp < PLAYER_MAX_HP && frame - lastHealthFrame >= HEALTH_COOLDOWN;
+  }
+
+  function canOfferLife() {
+    return lives < MAX_LIVES;
   }
 
   function trySpawnHealthDrop(x, y) {
     if (!canOfferHealth()) return false;
     spawnPowerUp(x, y, "health");
+    return true;
+  }
+
+  function trySpawnLifeDrop(x, y) {
+    if (!canOfferLife()) return false;
+    spawnPowerUp(x, y, "life");
     return true;
   }
 
@@ -508,8 +674,12 @@
     const def = getStageDef(stage);
     const r = Math.random();
     const egg = def.easterEgg || {};
-    if (egg.dark_interceptor && r < egg.dark_interceptor) return "dark_interceptor";
-    if (egg.tie_patrol && r < (egg.tie_patrol + (egg.dark_interceptor || 0))) return "tie_patrol";
+    const eggTypes = Object.keys(egg);
+    let eggRoll = 0;
+    for (const type of eggTypes) {
+      eggRoll += egg[type] || 0;
+      if (r < eggRoll) return type;
+    }
 
     const pool = def.enemyPool;
     const total = pool.reduce((s, e) => s + e.weight, 0);
@@ -522,7 +692,9 @@
   }
 
   function createEnemy(type, x, y, overrides = {}) {
-    const cfg = ENEMY_TYPES[type] || BOSS_TYPES[type];
+    const cfg = ENEMY_TYPES[type] || getBossConfig(type);
+    if (!cfg) return null;
+    const isBoss = !!getBossConfig(type);
     return {
       type,
       x: x ?? (cfg.width / 2 + 10 + Math.random() * (W - cfg.width - 20)),
@@ -540,16 +712,22 @@
       spawnTimer: cfg.spawnInterval || 0,
       zigzag: cfg.zigzag || false,
       zigzagPhase: Math.random() * Math.PI * 2,
-      isBoss: !!BOSS_TYPES[type],
+      isBoss,
+      bossTier: MEGA_BOSS_TYPES[type] ? "mega" : isBoss ? "mini" : null,
       bossName: cfg.name || null,
       bulletSpeed: cfg.bulletSpeed || 3,
       ...overrides,
     };
   }
 
+  function isBlockingEnemy(enemy) {
+    return !enemy.isBoss && !enemy.easterEgg && !enemy.rebelPursuer;
+  }
+
   function spawnEnemy() {
     if (enemies.some((e) => e.isBoss)) return;
-    enemies.push(createEnemy(pickEnemyType()));
+    const enemy = createEnemy(pickEnemyType());
+    if (enemy) enemies.push(enemy);
   }
 
   function spawnRebelPursuers(flyby) {
@@ -617,12 +795,16 @@
     clearRebelPursuers();
   }
 
-  function spawnStageBoss(bossType) {
-    const boss = createEnemy(bossType, W / 2, -BOSS_TYPES[bossType].height);
+  function spawnEndBoss(bossType) {
+    const cfg = getBossConfig(bossType);
+    if (!cfg) return;
+    const boss = createEnemy(bossType, W / 2, -cfg.height);
+    if (!boss) return;
     boss.entering = true;
     enemies.push(boss);
     audio.playBoss();
-    showFloatingText(W / 2, 80, `⚠ ${BOSS_TYPES[bossType].name} 来袭!`, "#ffd700", 120);
+    const label = boss.bossTier === "mega" ? "大 Boss" : "关底 Boss";
+    showFloatingText(W / 2, 80, `⚠ ${cfg.name} ${label}来袭!`, currentTheme.ui.floatingBoss, 120);
     updateHUD();
   }
 
@@ -630,24 +812,30 @@
     return !enemy.rebelPursuer && !enemy.easterEgg && !enemy.isBoss;
   }
 
-  function checkStageComplete() {
+  function advanceStageFlow() {
     if (gameState !== "playing") return;
     const def = getStageDef(stage);
-    if (stageKills < def.goalKills) return;
-    if (def.boss) {
-      if (!stageBossSpawned) {
-        stageBossSpawned = true;
-        spawnStageBoss(def.boss);
-        return;
-      }
-      if (enemies.some((e) => e.isBoss)) return;
+
+    if (stagePhase === "assault") {
+      if (stageKills < def.goalKills || stageBossSpawned) return;
+      stageBossSpawned = true;
+      stagePhase = "boss";
+      spawnEndBoss(def.endBossType);
+      return;
     }
-    completeStage();
+
+    if (stagePhase === "boss") {
+      if (enemies.some((e) => e.isBoss)) return;
+      completeStage();
+    }
+  }
+
+  function checkStageComplete() {
+    advanceStageFlow();
   }
 
   function completeStage() {
     if (gameState !== "playing") return;
-    gameState = "stageClear";
     audio.stopBgm();
     enemyBullets = [];
     clearRebelPursuers();
@@ -659,13 +847,46 @@
     if (stageClearTotalEl) stageClearTotalEl.textContent = totalScore;
     const nextDef = getStageDef(stage + 1);
     if (nextStageNameEl) nextStageNameEl.textContent = nextDef.name;
-    showOverlay(stageClearOverlay);
 
     if (stage % 3 === 0 && lives < MAX_LIVES) {
       lives++;
-      showEasterEggToast(`连续突破 ${stage} 关！奖励生命 +1`);
+      showEasterEggToast(`连续突破 ${stage} 关！备用战机 +1（当前 ${lives} 命）`);
     }
     updateHUD();
+
+    if (def.isMegaStage) {
+      showUniverseJump(def);
+    } else {
+      gameState = "stageClear";
+      showOverlay(stageClearOverlay);
+    }
+  }
+
+  function finishUniverseJump() {
+    if (universeJumpOverlay) {
+      universeJumpOverlay.classList.remove("is-animating");
+      universeJumpOverlay.classList.add("hidden");
+    }
+    clearTimeout(universeJumpTimer);
+    universeJumpTimer = null;
+    const nextUni = themes.getUniverseIndex(stage + 1);
+    applyUniverseTheme(nextUni);
+    hideAllOverlays();
+    startStage(stage + 1);
+    gameState = "playing";
+    audio.startBgm();
+  }
+
+  function showUniverseJump(def) {
+    gameState = "universeJump";
+    const nextTheme = themes.getTheme((def.universeIndex + 1) % themes.UNIVERSE_THEMES.length);
+    if (jumpBossNameEl) jumpBossNameEl.textContent = def.endBossName;
+    if (jumpFromUniverseEl) jumpFromUniverseEl.textContent = currentTheme.name;
+    if (jumpToUniverseEl) jumpToUniverseEl.textContent = nextTheme.name;
+    showOverlay(universeJumpOverlay);
+    if (universeJumpOverlay) universeJumpOverlay.classList.add("is-animating");
+    clearTimeout(universeJumpTimer);
+    universeJumpTimer = setTimeout(finishUniverseJump, 3200);
   }
 
   function proceedToNextStage() {
@@ -717,10 +938,10 @@
         escortTime: 0,
         escortGoal: 120,
         name: "医疗救援舰",
-        hint: "护航医疗舰获生命补给",
+        hint: "护航医疗舰获耐久补给",
         color: "#ffffff", accent: "#ff6b9d",
       });
-      showFloatingText(W / 2, 100, "医疗救援舰抵达! 护航可获得生命补给", "#ff6b9d", 110);
+      showFloatingText(W / 2, 100, "医疗救援舰抵达! 护航可获得耐久补给", "#ff6b9d", 110);
     }
   }
 
@@ -731,8 +952,8 @@
     if (ally.kind === "medical") {
       if (trySpawnHealthDrop(ally.x, ally.y + 20)) {
         showFloatingText(ally.x, ally.y, "医疗补给投放!", "#ff6b9d", 90);
-      } else if (canOfferHealth() === false && lives >= MAX_LIVES) {
-        showFloatingText(ally.x, ally.y, "生命已满，改投护盾", "#3498db", 80);
+      } else if (canOfferHealth() === false && playerHp >= PLAYER_MAX_HP) {
+        showFloatingText(ally.x, ally.y, "耐久已满，改投护盾", "#3498db", 80);
         spawnPowerUp(ally.x, ally.y + 20, "shield");
       } else {
         showFloatingText(ally.x, ally.y, "补给冷却中，改投护盾", "#3498db", 80);
@@ -742,7 +963,9 @@
     }
 
     showFloatingText(ally.x, ally.y, "任务完成! 道具投放", "#ffd700", 90);
-    if (canOfferHealth() && Math.random() < 0.18) {
+    if (canOfferLife() && Math.random() < 0.06) {
+      trySpawnLifeDrop(ally.x + 10, ally.y + 20);
+    } else if (canOfferHealth() && Math.random() < 0.18) {
       trySpawnHealthDrop(ally.x, ally.y + 20);
       if (Math.random() < 0.35) spawnPowerUp(ally.x + 30, ally.y + 30);
     } else {
@@ -792,12 +1015,22 @@
         checkStageComplete();
         break;
       case "health":
-        if (lives < MAX_LIVES) {
-          lives++;
+        if (playerHp < PLAYER_MAX_HP) {
+          playerHp++;
           lastHealthFrame = frame;
           spawnParticles(player.x, player.y, "#ff6b9d", 15);
+          showFloatingText(player.x, player.y - 40, `耐久 +1 (${playerHp}/${PLAYER_MAX_HP})`, "#ff6b9d", 60);
         } else {
-          showFloatingText(player.x, player.y - 40, "生命已满", "#7a9ab8", 50);
+          showFloatingText(player.x, player.y - 40, "耐久已满", "#7a9ab8", 50);
+        }
+        break;
+      case "life":
+        if (lives < MAX_LIVES) {
+          lives++;
+          spawnParticles(player.x, player.y, "#fcd34d", 18);
+          showFloatingText(player.x, player.y - 40, `备用战机 +1（当前 ${lives} 命）`, "#fbbf24", 70);
+        } else {
+          showFloatingText(player.x, player.y - 40, "战机编队已满", "#7a9ab8", 50);
         }
         break;
       case "laser": buffs.laser = Math.max(buffs.laser, cfg.duration); break;
@@ -897,7 +1130,52 @@
     mouseMarker = { x: mouseTarget.x, y: mouseTarget.y, life: 40, maxLife: 40 };
   }
 
+  function getRespawnProgress() {
+    if (!respawnAnim) return 0;
+    return Math.min(1, (frame - respawnAnim.start) / respawnAnim.duration);
+  }
+
+  function swapPlane() {
+    lives--;
+    spawnParticles(player.x, player.y, "#ff6b6b", 28);
+    audio.playExplode();
+    if (lives <= 0) {
+      showFloatingText(player.x, player.y - 40, "战机坠毁 · 无备用机", "#ff6b6b", 90);
+      updateHUD();
+      endGame();
+      return;
+    }
+    respawnAnim = {
+      start: frame,
+      duration: RESPAWN_ANIM_FRAMES,
+      fromY: H + 55,
+      toY: H - 80,
+    };
+    playerHp = PLAYER_MAX_HP;
+    player.x = W / 2;
+    player.y = respawnAnim.fromY;
+    player.prevX = player.x;
+    player.prevY = player.y;
+    playerTrail = [];
+    enemyBullets = [];
+    invincibleUntil = frame + 180;
+    showFloatingText(W / 2, H * 0.42, `备用战机接入 · 剩余 ${lives} 命`, "#fcd34d", 100);
+    updateHUD();
+  }
+
   function updatePlayer() {
+    if (respawnAnim) {
+      const t = getRespawnProgress();
+      const ease = 1 - Math.pow(1 - t, 2.6);
+      player.y = respawnAnim.fromY + (respawnAnim.toY - respawnAnim.fromY) * ease;
+      player.x = W / 2 + Math.sin(t * Math.PI) * 36 * (1 - t * 0.35);
+      clampPlayerPosition();
+      player.prevX = player.x;
+      player.prevY = player.y;
+      if (t >= 1) respawnAnim = null;
+      return;
+    }
+
     let dx = 0, dy = 0;
     if (keys["ArrowLeft"] || keys["a"] || keys["A"]) dx -= 1;
     if (keys["ArrowRight"] || keys["d"] || keys["D"]) dx += 1;
@@ -960,6 +1238,7 @@
   }
 
   function tryStageEvents() {
+    if (stagePhase === "boss") return;
     const def = getStageDef(stage);
     if (def.allyMission && !stageAllySpawned && stageKills >= Math.floor(def.goalKills * 0.45) && allies.length === 0) {
       stageAllySpawned = true;
@@ -973,14 +1252,16 @@
 
   function updateEnemies() {
     const def = getStageDef(stage);
-    const hasBoss = enemies.some((e) => e.isBoss);
-    const goalMet = stageKills >= def.goalKills;
-    if (!hasBoss && !(goalMet && def.boss) && frame % def.spawnRate === 0) spawnEnemy();
+    if (stagePhase === "assault" && !enemies.some((e) => e.isBoss) && frame % def.spawnRate === 0) {
+      const mobCap = 8 + Math.min(stage, 6);
+      const mobCount = enemies.filter(isBlockingEnemy).length;
+      if (mobCount < mobCap) spawnEnemy();
+    }
     tryStageEvents();
 
     enemies.forEach((e) => {
       if (e.entering) { e.y += 1.2; if (e.y >= 100) e.entering = false; return; }
-      const cfg = BOSS_TYPES[e.type] || ENEMY_TYPES[e.type];
+      const cfg = getBossConfig(e.type) || ENEMY_TYPES[e.type];
       const dx = player.x - e.x, dy = player.y - e.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       e.angle = Math.atan2(dy, dx);
@@ -1013,15 +1294,17 @@
         e.shootTimer = (e.shootTimer || 0) + 1;
         if (e.shootTimer >= cfg.shootInterval) {
           e.shootTimer = 0;
-          if (e.type === "storm") [-0.3, -0.15, 0, 0.15, 0.3].forEach((s) => enemyShoot(e, e.bulletSpeed, s));
-          else enemyShoot(e, e.bulletSpeed || 3);
+          if (e.pattern === "boss_storm" || e.pattern === "boss_lava" || e.pattern === "boss_matrix") {
+            [-0.3, -0.15, 0, 0.15, 0.3].forEach((s) => enemyShoot(e, e.bulletSpeed, s));
+          } else enemyShoot(e, e.bulletSpeed || 3);
         }
       }
-      if (e.type === "commander" && cfg.spawnInterval) {
+      if (cfg.spawnInterval) {
         e.spawnTimer = (e.spawnTimer || 0) + 1;
-        if (e.spawnTimer >= cfg.spawnInterval && enemies.length < 12) {
+        if (e.spawnTimer >= cfg.spawnInterval && enemies.length < 14) {
           e.spawnTimer = 0;
-          enemies.push(createEnemy("scout", e.x + (Math.random() - 0.5) * 60, e.y + 20));
+          const minion = createEnemy("scout", e.x + (Math.random() - 0.5) * 60, e.y + 20);
+          if (minion) enemies.push(minion);
         }
       }
     });
@@ -1101,10 +1384,13 @@
       if (canOfferHealth() && Math.random() < HEALTH_BOSS_CHANCE) {
         trySpawnHealthDrop(enemy.x - 20, enemy.y);
       }
+      if (canOfferLife() && Math.random() < 0.12) {
+        trySpawnLifeDrop(enemy.x + 20, enemy.y);
+      }
       if (Math.random() < BOSS_DROP_CHANCE) spawnPowerUp(enemy.x, enemy.y);
       if (Math.random() < BOSS_DROP_CHANCE * 0.4) spawnPowerUp(enemy.x + 25, enemy.y);
     } else {
-      if (lives === 1 && canOfferHealth() && Math.random() < HEALTH_CRITICAL_CHANCE) {
+      if (playerHp === 1 && canOfferHealth() && Math.random() < HEALTH_CRITICAL_CHANCE) {
         trySpawnHealthDrop(enemy.x, enemy.y);
       } else if (Math.random() < getStageDropChance()) {
         spawnPowerUp(enemy.x, enemy.y);
@@ -1123,17 +1409,14 @@
       showFloatingText(player.x, player.y - 30, "护盾破碎!", "#3498db", 50);
       audio.playHit(); updateHUD(); return true;
     }
-    lives--;
-    spawnParticles(player.x, player.y, "#00e5ff", 20);
+    playerHp--;
+    spawnParticles(player.x, player.y, "#ff6b6b", 16);
     invincibleUntil = frame + 120;
     audio.playDamage();
-    if (lives <= 0) {
-      updateHUD();
-      endGame();
+    if (playerHp <= 0) {
+      swapPlane();
     } else {
-      resetPlayerPosition();
-      enemyBullets = [];
-      showFloatingText(player.x, player.y - 40, `战死复活 · 剩余 ${lives} 条命`, "#ffd93d", 75);
+      showFloatingText(player.x, player.y - 40, `机体受损 · 剩余 ${playerHp} 点耐久`, "#ffd93d", 75);
       updateHUD();
     }
     return true;
@@ -1179,6 +1462,8 @@
     }
     powerUps = powerUps.filter((p) => !p.collected);
 
+    if (respawnAnim) return;
+
     if (frame >= invincibleUntil) {
       for (const enemy of enemies) {
         if (rectOverlap(pc, enemy)) { enemies = enemies.filter((e) => e !== enemy); damagePlayer(); break; }
@@ -1193,18 +1478,27 @@
   function drawStageBar() {
     if (gameState !== "playing") return;
     const def = getStageDef(stage);
+    const ui = currentTheme.ui;
     const barW = W - 40;
     const x = 20;
     const y = H - 18;
-    const ratio = def.boss && stageBossSpawned
-      ? (enemies.some((e) => e.isBoss) ? 0.35 : 1)
-      : Math.min(1, stageKills / def.goalKills);
+    let ratio;
+    let label;
+
+    if (stagePhase === "boss") {
+      const boss = enemies.find((e) => e.isBoss);
+      ratio = boss ? boss.hp / boss.maxHp : 1;
+      label = `第 ${stage} 关 · 击败 ${def.endBossName}`;
+    } else {
+      ratio = Math.min(1, stageKills / def.goalKills);
+      label = `第 ${stage} 关 · ${def.name} · 清剿敌潮`;
+    }
 
     ctx.fillStyle = "rgba(0,0,0,0.45)";
     ctx.fillRect(x, y, barW, 6);
     const grad = ctx.createLinearGradient(x, 0, x + barW, 0);
-    grad.addColorStop(0, "#38bdf8");
-    grad.addColorStop(1, "#a78bfa");
+    grad.addColorStop(0, ui.barFrom);
+    grad.addColorStop(1, ui.barTo);
     ctx.fillStyle = grad;
     ctx.fillRect(x, y, barW * ratio, 6);
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
@@ -1213,9 +1507,6 @@
     ctx.fillStyle = "rgba(200,220,240,0.55)";
     ctx.font = "9px Microsoft YaHei, sans-serif";
     ctx.textAlign = "left";
-    const label = def.boss && stageBossSpawned && enemies.some((e) => e.isBoss)
-      ? `第 ${stage} 关 · ${def.name} · 击败 Boss`
-      : `第 ${stage} 关 · ${def.name}`;
     ctx.fillText(label, x, y - 4);
   }
 
@@ -1224,12 +1515,16 @@
   }
 
   function drawPlayerTrail() {
-    sprites.drawPlayerTrail(ctx, playerTrail, player.width, player.height, buffs, frame);
+    sprites.drawPlayerTrail(ctx, playerTrail, player.width, player.height, buffs, frame, playerThemePalette);
   }
 
   function drawPlayer() {
-    drawPlayerTrail();
-    sprites.drawPlayer(ctx, player.x, player.y, player.width, player.height, buffs, frame, invincibleUntil);
+    if (!respawnAnim) drawPlayerTrail();
+    sprites.drawPlayer(ctx, player.x, player.y, player.width, player.height, buffs, frame, invincibleUntil, playerThemePalette, {
+      hp: playerHp,
+      maxHp: PLAYER_MAX_HP,
+      respawnT: getRespawnProgress(),
+    });
   }
 
   function drawAlly(ally) {
@@ -1377,6 +1672,23 @@
       case "laser":
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(5, 0); ctx.lineTo(2, 0); ctx.lineTo(6, 12); ctx.lineTo(-6, 12); ctx.lineTo(-2, 0); ctx.lineTo(-5, 0); ctx.closePath(); ctx.fill();
+        break;
+      case "life":
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(-7, 2);
+        ctx.lineTo(0, 8);
+        ctx.lineTo(7, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 9px Microsoft YaHei,sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("+", 0, 3);
         break;
     }
   }
@@ -1527,6 +1839,7 @@
     updatePowerUps();
     updateParticles();
     checkCollisions();
+    advanceStageFlow();
     updateHUD();
   }
 
@@ -1629,6 +1942,7 @@
       gameState = stateBeforeManual;
       if (gameState === "menu") showOverlay(overlay);
       else if (gameState === "stageClear") showOverlay(stageClearOverlay);
+      else if (gameState === "universeJump") showOverlay(universeJumpOverlay);
       else if (gameState === "gameover") showOverlay(gameOverOverlay);
     }
   }
@@ -1643,6 +1957,10 @@
     if ((e.key === "Enter" || e.key === " ") && gameState === "stageClear") {
       e.preventDefault();
       proceedToNextStage();
+    }
+    if ((e.key === "Enter" || e.key === " ") && gameState === "universeJump") {
+      e.preventDefault();
+      finishUniverseJump();
     }
     if (e.key === "h" || e.key === "H") {
       if (gameState === "manual") closeManual();
@@ -1667,6 +1985,7 @@
   startBtn.addEventListener("click", () => startGame(false));
   restartBtn.addEventListener("click", () => startGame(true));
   if (nextStageBtn) nextStageBtn.addEventListener("click", proceedToNextStage);
+  if (jumpSkipBtn) jumpSkipBtn.addEventListener("click", finishUniverseJump);
   if (openManualBtn) openManualBtn.addEventListener("click", openManual);
   if (helpBtn) helpBtn.addEventListener("click", openManual);
   if (closeManualBtn) closeManualBtn.addEventListener("click", closeManual);
@@ -1714,7 +2033,7 @@
   }
 
   showOverlay(overlay);
-  initBackground();
+  applyUniverseTheme(0);
   render();
   gameLoop();
 })();

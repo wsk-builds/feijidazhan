@@ -17,14 +17,30 @@
               <span id="score">0</span>
             </div>
             <div class="hud-divider"></div>
-            <div class="hud-item">
-              <span class="label">生命</span>
-              <span id="lives">3</span>
+            <div class="hud-item hud-lives">
+              <span class="label">战机</span>
+              <div class="hud-lives-wrap">
+                <div class="hud-lives-icons" id="livesIcons" aria-label="剩余战机"></div>
+                <span class="hud-lives-num" id="livesDisplay">3</span>
+              </div>
+            </div>
+            <div class="hud-divider"></div>
+            <div class="hud-item hud-hp">
+              <span class="label">耐久</span>
+              <div class="hud-hp-wrap">
+                <div class="hud-hp-bar" id="playerHpBar" aria-label="战机耐久"></div>
+                <span class="hud-hp-text" id="playerHpText">4/4</span>
+              </div>
             </div>
             <div class="hud-divider"></div>
             <div class="hud-item">
               <span class="label">关卡</span>
               <span id="level">1</span>
+            </div>
+            <div class="hud-divider"></div>
+            <div class="hud-item hud-universe">
+              <span class="label">宇宙</span>
+              <span id="universeLabel">深空宙域</span>
             </div>
           </div>
           <div class="hud-tools">
@@ -40,9 +56,24 @@
           <div class="panel panel-start">
             <h1 id="gameTitle">飞机大战</h1>
             <p class="subtitle">暗影刺客 · 直插<span id="subtitleSecret" class="subtitle-secret">敌方</span>要塞</p>
-            <p class="start-hint">关卡制战役 · 逐关突破 · 3 条命闯关 · WASD / 点击移动</p>
+            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动</p>
             <button id="startBtn" class="btn btn-primary">开始游戏</button>
             <button id="openManualBtn" class="text-link" type="button">查看游戏说明</button>
+          </div>
+        </div>
+
+        <div id="universeJumpOverlay" class="overlay universe-jump hidden">
+          <div class="universe-jump-bg"></div>
+          <div class="panel panel-universe">
+            <h1>宇宙跃迁</h1>
+            <p class="universe-jump-boss">突破 <span id="jumpBossName">雷暴母舰</span></p>
+            <p class="universe-jump-route">
+              <span id="jumpFromUniverse">深空宙域</span>
+              <span class="universe-arrow">→</span>
+              <span id="jumpToUniverse">熔岩星系</span>
+            </p>
+            <p class="universe-jump-hint">进入新宇宙，战机与敌势将全面换肤…</p>
+            <button id="jumpSkipBtn" class="btn btn-primary">立即进入</button>
           </div>
         </div>
 
@@ -88,6 +119,14 @@
             <span class="stat-value" id="statDamage">1</span>
           </div>
           <div class="stat-cell">
+            <span class="stat-label">战机</span>
+            <span class="stat-value" id="statLives">3</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">耐久</span>
+            <span class="stat-value" id="statHp">4 / 4</span>
+          </div>
+          <div class="stat-cell">
             <span class="stat-label">护盾</span>
             <span class="stat-value" id="statShield">无</span>
           </div>
@@ -113,9 +152,10 @@
             <ul>
               <li>每关目标：击毁指定数量敌机（进度条显示在画布底部）</li>
               <li>部分关卡清剿完毕后出现 <strong>Boss</strong>，击败 Boss 方可过关</li>
-              <li>拥有 <strong>3 条命</strong>，阵亡可在当前关复活；命尽则战役结束</li>
-              <li>每完成 3 关奖励 <strong>生命 +1</strong>（上限 5）</li>
-              <li>过关后点击「进入下一关」，生命与累计得分保留</li>
+              <li>你始终驾驶<strong>同一型号战机</strong>：每架有 <strong>4 点耐久</strong>（被击中 -1，护盾可挡一次）</li>
+              <li><strong>1 命 = 1 架飞机</strong>；耐久归零后若有备用机，会播放换机过场并替换同款新机上阵</li>
+              <li>初始 <strong>3 命</strong>，每 3 关奖励 +1 命（上限 5）；可拾取「备用战机」道具</li>
+              <li>进入下一关时当前飞机耐久回满；命与累计得分在关卡间保留</li>
             </ul>
           </section>
 
@@ -170,24 +210,30 @@
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
                 <tr>
-                  <td style="color:#ff6b9d">生命补给</td>
-                  <td>生命 +1（上限 5）</td>
+                  <td style="color:#ff6b9d">耐久补给</td>
+                  <td>当前飞机耐久 +1</td>
                   <td>即时</td>
                   <td><strong>稀有</strong>，见下方专门说明</td>
+                </tr>
+                <tr>
+                  <td style="color:#fbbf24">备用战机</td>
+                  <td>命 +1（上限 5）</td>
+                  <td>即时</td>
+                  <td>每 3 关奖励 · 击败 Boss · 友军任务</td>
                 </tr>
               </tbody>
             </table>
           </section>
 
           <section class="manual-section">
-            <h2>生命补给（稀有）</h2>
+            <h2>耐久补给（稀有）</h2>
             <ul>
               <li><strong>不会</strong>从普通 6% 随机掉落池中出现</li>
               <li>🩷 <strong>医疗救援舰</strong>护航成功：主要来源，直接投放</li>
               <li>🏆 击败小 Boss：35% 概率额外掉落</li>
-              <li>⚠ 生命仅剩 1 时：击毁敌机 5% 概率急救包</li>
-              <li>✅ 其他友军任务完成：18% 概率奖励生命补给</li>
-              <li>拾取后 <strong>60 秒冷却</strong>；生命已满时无法获得（医疗舰改投护盾）</li>
+              <li>⚠ 耐久仅剩 1 时：击毁敌机 5% 概率急救包</li>
+              <li>✅ 其他友军任务完成：18% 概率奖励耐久补给</li>
+              <li>拾取后 <strong>60 秒冷却</strong>；耐久已满时无法获得（医疗舰改投护盾）</li>
             </ul>
           </section>
 
@@ -212,7 +258,7 @@
                 <tr>
                   <td>🩷 医疗救援舰</td>
                   <td>靠近护航累计 2 秒，保护不被撞毁</td>
-                  <td>生命补给（或护盾补偿）+ 300 分</td>
+                  <td>耐久补给（或护盾补偿）+ 300 分</td>
                 </tr>
               </tbody>
             </table>
@@ -301,7 +347,7 @@
           <section class="manual-section">
             <h2>其他规则</h2>
             <ul>
-              <li>初始生命 <strong>3</strong>，上限 <strong>5</strong></li>
+              <li>每架飞机 <strong>4</strong> 点耐久；每关开始时回满，命在关卡间保留</li>
               <li>每 2000 分提升 1 级，敌机更强、出现种类更多</li>
               <li>Boss 战期间暂停普通敌机刷新的洪流，专注击败 Boss</li>
               <li>拾取同类道具时，持续时间取<strong>较长</strong>的剩余时间（不会缩短已有 Buff）</li>
@@ -318,6 +364,7 @@
 
   <script src="audio.js"></script>
   <script src="sprites.js"></script>
+  <script src="themes.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
