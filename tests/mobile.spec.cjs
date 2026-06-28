@@ -47,11 +47,13 @@ function waitForServer(port, timeout = 8000) {
       manifest: !!document.querySelector('link[rel="manifest"]'),
       touchControls: !!document.getElementById("touchControls"),
       drawerToggle: !!document.getElementById("statsDrawerToggle"),
+      hudBuffBars: !!document.getElementById("hudBuffBars"),
     }));
 
     if (!boot.mobileClass) throw new Error("is-mobile-ui not applied at 375px");
     if (!boot.manifest) throw new Error("manifest link missing");
     if (!boot.touchControls || !boot.drawerToggle) throw new Error("mobile chrome missing");
+    if (!boot.hudBuffBars) throw new Error("hudBuffBars element missing");
 
     await page.click("#startBtn");
     await page.waitForTimeout(900);

@@ -144,6 +144,10 @@ body[data-universe="3"] {
   gap: 8px;
 }
 
+.hud-row-buffs {
+  display: none;
+}
+
 .hud-item {
   display: flex;
   align-items: baseline;
@@ -907,6 +911,65 @@ body.is-mobile-ui .hud-row-secondary {
   padding-top: 4px;
   border-top: 1px solid var(--u-accent-border);
   min-height: 22px;
+}
+
+body.is-mobile-ui .hud-row-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--u-accent-border);
+  min-height: 0;
+}
+
+body.is-mobile-ui .hud-row-buffs[hidden] {
+  display: none !important;
+}
+
+body.is-mobile-ui .hud-buff-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 4px);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 2px solid var(--buff-color);
+}
+
+body.is-mobile-ui .hud-buff-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--buff-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+body.is-mobile-ui .hud-buff-bar {
+  flex: 1;
+  height: 3px;
+  min-width: 24px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+body.is-mobile-ui .hud-buff-bar-fill {
+  height: 100%;
+  background: var(--buff-color);
+  border-radius: 2px;
+}
+
+body.is-mobile-ui .hud-buff-time {
+  font-size: 9px;
+  color: rgba(140, 190, 230, 0.55);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: right;
 }
 
 body.is-mobile-ui .hud-row-primary {

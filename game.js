@@ -49,6 +49,7 @@
   const statBombsEl = document.getElementById("statBombs");
   const statMissilesEl = document.getElementById("statMissiles");
   const buffListEl = document.getElementById("buffList");
+  const hudBuffBarsEl = document.getElementById("hudBuffBars");
   const overlay = document.getElementById("overlay");
   const gameOverOverlay = document.getElementById("gameOverOverlay");
   const finalScoreEl = document.getElementById("finalScore");
@@ -74,8 +75,9 @@
   const mobileTutorialDismiss = document.getElementById("mobileTutorialDismiss");
 
   const MOBILE_TUTORIAL_KEY = "feijidazhan_mobile_tutorial_v1";
-  const TOUCH_DRAG_LERP = 0.30;
-  const MOBILE_SPEED_SCALE = 0.76;
+  const TOUCH_DRAG_LERP = 0.48;
+  const SNAP_DIST = 12;
+  const MOBILE_SPEED_SCALE = 0.78;
 
   const keys = {};
   let mouseTarget = null;
@@ -251,7 +253,7 @@
       label: "炸药", fullName: "炸药包", shortDesc: "储备+1",
       desc: "获得 1 枚炸药储备，按 B 在屏幕布设下行地雷（预判 Boss 位置）",
       color: "#f39c12", bgColor: "#3a2200", borderColor: "#f5b041",
-      icon: "bomb", duration: 0, weight: 3,
+      icon: "bomb", duration: 0, weight: 1,
     },
     health: {
       label: "回血", fullName: "耐久补给", shortDesc: "耐久+1",
@@ -281,7 +283,7 @@
 
   const BOSS_DROP_CHANCE = 0.72;
   const BOSS_MISSILE_CHANCE = 0.52;
-  const BOSS_BOMB_CHANCE = 0.34;
+  const BOSS_BOMB_CHANCE = 0.17;
 
   const BASE_ENEMY_COLORS = {};
   Object.keys(ENEMY_TYPES).forEach((k) => {
@@ -889,14 +891,15 @@
       }
     }
 
+    const buffDefs = [
+      { key: "power", color: "#ff4757", max: POWERUP_TYPES.power.duration },
+      { key: "shield", color: "#3498db", max: POWERUP_TYPES.shield.duration },
+      { key: "speed", color: "#2ecc71", max: POWERUP_TYPES.speed.duration },
+      { key: "laser", color: "#a855f7", max: POWERUP_TYPES.laser.duration },
+    ];
+    const activeBuffs = buffDefs.filter((b) => buffs[b.key] > 0);
+
     if (buffListEl) {
-      const buffDefs = [
-        { key: "power", color: "#ff4757", max: POWERUP_TYPES.power.duration },
-        { key: "shield", color: "#3498db", max: POWERUP_TYPES.shield.duration },
-        { key: "speed", color: "#2ecc71", max: POWERUP_TYPES.speed.duration },
-        { key: "laser", color: "#a855f7", max: POWERUP_TYPES.laser.duration },
-      ];
-      const activeBuffs = buffDefs.filter((b) => buffs[b.key] > 0);
       if (activeBuffs.length === 0) {
         buffListEl.innerHTML = `<p class="buff-empty">${i18n.t("ui.buffEmpty")}</p>`;
       } else {
@@ -909,6 +912,26 @@
             <div class="buff-card-name">${i18n.buffLabel(b.key)}${stack}</div>
             <div class="buff-card-bar"><div class="buff-card-bar-fill" style="width:${pct}%"></div></div>
             <div class="buff-card-time">${i18n.t("ui.buffRemain", { n: secs })}</div>
+          </div>`;
+        }).join("");
+      }
+    }
+
+    if (hudBuffBarsEl) {
+      if (!isMobileUI || activeBuffs.length === 0) {
+        hudBuffBarsEl.innerHTML = "";
+        hudBuffBarsEl.hidden = true;
+      } else {
+        hudBuffBarsEl.hidden = false;
+        hudBuffBarsEl.innerHTML = activeBuffs.map((b) => {
+          const remain = buffs[b.key];
+          const pct = Math.min(100, (remain / b.max) * 100);
+          const secs = Math.ceil(remain / 60);
+          const stack = formatBuffStack(b.key);
+          return `<div class="hud-buff-chip" style="--buff-color:${b.color}">
+            <span class="hud-buff-label">${i18n.buffLabel(b.key)}${stack}</span>
+            <div class="hud-buff-bar"><div class="hud-buff-bar-fill" style="width:${pct}%"></div></div>
+            <span class="hud-buff-time">${secs}s</span>
           </div>`;
         }).join("");
       }
@@ -935,14 +958,20 @@
     return true;
   }
 
+  function getPowerUpWeight(type, weights) {
+    const w = weights[type] || POWERUP_TYPES[type]?.weight || 1;
+    if (type === "bomb") return Math.max(1, Math.floor(w / 2));
+    return w;
+  }
+
   function pickRandomPowerUpType() {
     const def = getStageDef(stage);
     const pool = def.powerupPool || ["power", "shield", "speed"];
     const weights = def.powerupWeights || {};
-    const total = pool.reduce((s, t) => s + (weights[t] || POWERUP_TYPES[t]?.weight || 1), 0);
+    const total = pool.reduce((s, t) => s + getPowerUpWeight(t, weights), 0);
     let roll = Math.random() * total;
     for (const type of pool) {
-      roll -= weights[type] || POWERUP_TYPES[type]?.weight || 1;
+      roll -= getPowerUpWeight(type, weights);
       if (roll <= 0) return type;
     }
     return pool[0];
@@ -1088,6 +1117,12 @@
     if (!cfg) return;
     const boss = createEnemy(bossType, W / 2, -cfg.height);
     if (!boss) return;
+    if (stage === 2 && bossType === "mini_striker") {
+      boss.hp = Math.round(cfg.hp * 1.4);
+      boss.maxHp = boss.hp;
+      boss.spawnInterval = Math.floor((cfg.spawnInterval || 200) * 0.65);
+      boss.minionType = "interceptor";
+    }
     boss.entering = true;
     enemies.push(boss);
     audio.playBoss(boss.bossTier === "mega");
@@ -1717,17 +1752,14 @@
       player.x += dx * player.speed;
       player.y += dy * player.speed;
     } else if (isMobileUI && touchDrag.active) {
-      const mdx = (touchDrag.x - player.x) * TOUCH_DRAG_LERP;
-      const mdy = (touchDrag.y - player.y) * TOUCH_DRAG_LERP;
-      const cap = player.speed * 1.0;
-      const dist = Math.hypot(mdx, mdy);
-      if (dist > cap) {
-        const s = cap / dist;
-        player.x += mdx * s;
-        player.y += mdy * s;
+      const tdx = touchDrag.x - player.x;
+      const tdy = touchDrag.y - player.y;
+      if (Math.hypot(tdx, tdy) <= SNAP_DIST) {
+        player.x = touchDrag.x;
+        player.y = touchDrag.y;
       } else {
-        player.x += mdx;
-        player.y += mdy;
+        player.x += tdx * TOUCH_DRAG_LERP;
+        player.y += tdy * TOUCH_DRAG_LERP;
       }
     } else if (mouseTarget) {
       const mdx = mouseTarget.x - player.x;
@@ -1832,10 +1864,14 @@
         if (e.y < BOSS_ANCHOR_Y) {
           e.y += e.speed * 0.55;
         } else {
+          const isMega = e.bossTier === "mega";
+          const trackFactor = isMega ? 0.42 : 0.58;
+          const swayAmp = isMega ? 0.55 : 0.9;
+          e.x += (dx / d) * e.speed * trackFactor;
+          e.x += Math.sin(frame * 0.025 + e.x * 0.01) * swayAmp;
           e.y += Math.sin(frame * 0.022 + e.x * 0.012) * 0.32;
-          e.y = Math.max(BOSS_ANCHOR_Y - 20, Math.min(BOSS_ANCHOR_Y + 20, e.y));
+          e.y = Math.max(BOSS_ANCHOR_Y - 24, Math.min(BOSS_ANCHOR_Y + 24, e.y));
         }
-        e.x += (dx / d) * e.speed * 0.35;
         e.x = Math.max(e.width / 2, Math.min(W - e.width / 2, e.x));
       } else {
         e.y += e.speed * 0.88;
@@ -1862,11 +1898,13 @@
           }
         }
       }
-      if (cfg.spawnInterval) {
+      if (cfg.spawnInterval || e.spawnInterval) {
         e.spawnTimer = (e.spawnTimer || 0) + 1;
-        if (e.spawnTimer >= cfg.spawnInterval && enemies.length < 14) {
+        const spawnInterval = e.spawnInterval ?? cfg.spawnInterval;
+        if (e.spawnTimer >= spawnInterval && enemies.length < 14) {
           e.spawnTimer = 0;
-          const minion = createEnemy("scout", e.x + (Math.random() - 0.5) * 60, e.y + 20);
+          const minionType = e.minionType || "scout";
+          const minion = createEnemy(minionType, e.x + (Math.random() - 0.5) * 60, e.y + 20);
           if (minion) enemies.push(minion);
         }
       }
