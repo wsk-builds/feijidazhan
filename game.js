@@ -72,6 +72,7 @@
   let currentTheme = themes.getTheme(0);
   let playerThemePalette = currentTheme.player;
   let stageBossSpawned = false;
+  let stageVictoryDelay = -1;
   let stageAllySpawned = false;
   let stageRebelSpawned = false;
   let universeJumpTimer = null;
@@ -93,6 +94,7 @@
   const MAX_DEPLOYED_MINES = 3;
   const MINE_FALL_SPEED = 2.8;
   const MINE_BOSS_DAMAGE = 4;
+  const STAGE_VICTORY_PAUSE_FRAMES = 78;
 
   const player = {
     x: W / 2, y: H - 80,
@@ -531,6 +533,7 @@
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
+    stageVictoryDelay = -1;
     lastHealthFrame = -99999;
     bombCharges = 0;
     clearTimeout(universeJumpTimer);
@@ -551,6 +554,7 @@
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
+    stageVictoryDelay = -1;
     invincibleUntil = frame + 90;
     playerHp = PLAYER_MAX_HP;
     const uni = themes.getUniverseIndex(n);
@@ -866,8 +870,21 @@
     }
 
     if (stagePhase === "boss") {
-      if (enemies.some((e) => e.isBoss)) return;
-      if (enemies.some(isStageEnemy)) return;
+      if (enemies.some((e) => e.isBoss) || enemies.some(isStageEnemy)) {
+        stageVictoryDelay = -1;
+        return;
+      }
+      if (powerUps.length > 0) {
+        stageVictoryDelay = -1;
+        return;
+      }
+      if (stageVictoryDelay < 0) {
+        stageVictoryDelay = 0;
+        showFloatingText(W / 2, H * 0.36, "战场肃清 — 战利品已收入囊中", "#ffd700", 95);
+      }
+      stageVictoryDelay++;
+      if (stageVictoryDelay < STAGE_VICTORY_PAUSE_FRAMES) return;
+      stageVictoryDelay = -1;
       completeStage();
     }
   }
@@ -1701,6 +1718,12 @@
       } else if (remain > 0) {
         ratio = 1;
         label = `第 ${stage} 关 · 清剿残敌 · 剩余 ${remain}`;
+      } else if (powerUps.length > 0) {
+        ratio = 1;
+        label = `第 ${stage} 关 · 拾取 Boss 战利品 · 剩余 ${powerUps.length}`;
+      } else if (stageVictoryDelay >= 0) {
+        ratio = Math.min(1, stageVictoryDelay / STAGE_VICTORY_PAUSE_FRAMES);
+        label = `第 ${stage} 关 · 关卡完成`;
       } else {
         ratio = 1;
         label = `第 ${stage} 关 · 战场已肃清`;
