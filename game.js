@@ -435,6 +435,11 @@
     statsPanel.classList.toggle("is-hidden", !visible);
   }
 
+  function resumePlayingChrome() {
+    setStatsPanelVisible(true);
+    updateMobileChrome();
+  }
+
   function updateTouchBadges() {
     if (bombBtnCountEl) bombBtnCountEl.textContent = bombCharges > 0 ? String(bombCharges) : "";
     if (missileBtnCountEl) missileBtnCountEl.textContent = missileCharges > 0 ? String(missileCharges) : "";
@@ -1120,6 +1125,9 @@
     if (stage === 2 && bossType === "mini_striker") {
       boss.hp = Math.round(cfg.hp * 1.4);
       boss.maxHp = boss.hp;
+      boss.pattern = "boss_storm";
+      boss.shootInterval = 52;
+      boss.bulletSpeed = 3.0;
       boss.spawnInterval = Math.floor((cfg.spawnInterval || 200) * 0.65);
       boss.minionType = "interceptor";
     }
@@ -1227,6 +1235,7 @@
     startStage(stage + 1);
     gameState = "playing";
     audio.startBgm();
+    resumePlayingChrome();
   }
 
   function showUniverseJump(def) {
@@ -1247,6 +1256,7 @@
     startStage(stage + 1);
     gameState = "playing";
     audio.startBgm();
+    resumePlayingChrome();
   }
 
   function spawnAlly() {
@@ -1878,9 +1888,10 @@
         e.x += (dx / d) * e.speed * 0.18;
       }
 
-      if (cfg.shootInterval) {
+      const shootInterval = e.shootInterval ?? cfg.shootInterval;
+      if (shootInterval) {
         e.shootTimer = (e.shootTimer || 0) + 1;
-        let interval = cfg.shootInterval;
+        let interval = shootInterval;
         if (!e.isBoss && enemyBullets.length >= ENEMY_BULLET_SOFT_CAP) {
           interval = Math.ceil(interval * 1.6);
         }
@@ -2660,8 +2671,7 @@
     audio.startBgm();
     gameState = "playing";
     canvas.classList.remove("is-entering");
-    setStatsPanelVisible(true);
-    updateMobileChrome();
+    resumePlayingChrome();
   }
 
   function startGame(fromRestart) {
@@ -2728,8 +2738,7 @@
       else if (gameState === "universeJump") showOverlay(universeJumpOverlay);
       else if (gameState === "gameover") showOverlay(gameOverOverlay);
       else if (gameState === "playing") {
-        setStatsPanelVisible(true);
-        updateMobileChrome();
+        resumePlayingChrome();
       }
     }
   }

@@ -79,9 +79,52 @@ function waitForServer(port, timeout = 8000) {
     if (!playing.hidden) throw new Error("touch controls visible during play on desktop");
     if (playing.display !== "none") throw new Error(`touch controls display should be none, got ${playing.display}`);
 
+    const statsAfterStart = await page.evaluate(() => {
+      const panel = document.getElementById("statsPanel");
+      const canvas = document.getElementById("gameCanvas");
+      const panelStyle = panel ? getComputedStyle(panel) : null;
+      const canvasBox = canvas?.getBoundingClientRect();
+      const panelBox = panel?.getBoundingClientRect();
+      return {
+        hidden: panel?.classList.contains("is-hidden"),
+        display: panelStyle?.display,
+        position: panelStyle?.position,
+        canvasCenterX: canvasBox ? canvasBox.left + canvasBox.width / 2 : 0,
+        panelLeft: panelBox?.left ?? 0,
+        viewportCenterX: window.innerWidth / 2,
+      };
+    });
+    if (statsAfterStart.hidden) throw new Error("stats panel should be visible during play");
+    if (statsAfterStart.display === "none") throw new Error("stats panel display should not be none during play");
+    if (statsAfterStart.position !== "absolute") {
+      throw new Error(`stats panel should be absolute on desktop, got ${statsAfterStart.position}`);
+    }
+    if (Math.abs(statsAfterStart.canvasCenterX - statsAfterStart.viewportCenterX) > 8) {
+      throw new Error("canvas should be horizontally centered in viewport");
+    }
+    if (statsAfterStart.panelLeft < statsAfterStart.canvasCenterX) {
+      throw new Error("stats panel should sit to the right of canvas center");
+    }
+
+    await page.evaluate(() => {
+      const panel = document.getElementById("statsPanel");
+      if (panel) panel.classList.add("is-hidden");
+      const clear = document.getElementById("stageClearOverlay");
+      if (clear) clear.classList.remove("hidden");
+    });
+    await page.click("#nextStageBtn");
+    await page.waitForTimeout(400);
+
+    const statsAfterNext = await page.evaluate(() => ({
+      hidden: document.getElementById("statsPanel")?.classList.contains("is-hidden"),
+      level: document.getElementById("level")?.textContent,
+    }));
+    if (statsAfterNext.hidden) throw new Error("stats panel should reappear after proceedToNextStage");
+    if (statsAfterNext.level !== "2") throw new Error(`expected level 2 after next stage, got ${statsAfterNext.level}`);
+
     if (errors.length) throw new Error("JS errors: " + errors.join("; "));
 
-    console.log("OK: desktop hides touch controls at 1280x800");
+    console.log("OK: desktop stats panel layout and post-stage visibility");
     await browser.close();
     process.exit(0);
   } catch (e) {

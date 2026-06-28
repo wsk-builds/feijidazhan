@@ -88,12 +88,15 @@ body[data-universe="3"] {
 
 .game-wrapper {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .game-layout {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .game-main {
@@ -390,16 +393,15 @@ body[data-universe="3"] {
   border: 1px solid rgba(100, 180, 255, 0.12);
   border-radius: 10px;
   backdrop-filter: blur(8px);
-  align-self: stretch;
+  position: absolute;
+  left: calc(50% + 240px + 16px);
+  top: 0;
   opacity: 1;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .stats-panel.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(8px);
-  visibility: hidden;
+  display: none;
 }
 
 .stats-title {
@@ -1382,15 +1384,16 @@ body.is-mobile-ui .manual-section-mobile {
     padding: 12px 0;
   }
 
-  body:not(.is-mobile-ui) .game-layout {
+  body:not(.is-mobile-ui) .game-wrapper {
     flex-direction: column;
     align-items: center;
   }
 
   body:not(.is-mobile-ui) .stats-panel {
+    position: static;
     width: 480px;
     max-width: 94vw;
-    align-self: auto;
+    margin-top: 12px;
   }
 
   body:not(.is-mobile-ui) .stats-panel.is-hidden {
