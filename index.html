@@ -23,8 +23,13 @@
             </div>
             <div class="hud-divider"></div>
             <div class="hud-item">
-              <span class="label">等级</span>
+              <span class="label">关卡</span>
               <span id="level">1</span>
+            </div>
+            <div class="hud-divider"></div>
+            <div class="hud-item">
+              <span class="label">进度</span>
+              <span id="stageProgress">0/10</span>
             </div>
           </div>
           <div class="hud-tools">
@@ -40,17 +45,29 @@
           <div class="panel panel-start">
             <h1 id="gameTitle">飞机大战</h1>
             <p class="subtitle">暗影刺客 · 直插<span id="subtitleSecret" class="subtitle-secret">敌方</span>要塞</p>
-            <p class="start-hint">迅捷穿梭敌阵 · 方向键 / WASD · 点击飞行 · 空格射击</p>
+            <p class="start-hint">关卡制战役 · 逐关突破 · 3 条命闯关 · WASD / 点击移动</p>
             <button id="startBtn" class="btn btn-primary">开始游戏</button>
             <button id="openManualBtn" class="text-link" type="button">查看游戏说明</button>
           </div>
         </div>
 
+        <div id="stageClearOverlay" class="overlay hidden">
+          <div class="panel panel-compact">
+            <h1>关卡完成</h1>
+            <p class="stage-clear-name">第 <span id="clearedStage">1</span> 关 · <span id="clearedStageName">前哨渗透</span></p>
+            <p class="final-score">本关得分 <span id="stageClearScore">0</span></p>
+            <p class="stage-clear-total">累计得分 <span id="stageClearTotal">0</span></p>
+            <p class="stage-clear-next">下一关：<span id="nextStageName">乱流峡谷</span></p>
+            <button id="nextStageBtn" class="btn btn-primary">进入下一关</button>
+          </div>
+        </div>
+
         <div id="gameOverOverlay" class="overlay hidden">
           <div class="panel panel-compact">
-            <h1>游戏结束</h1>
-            <p class="final-score">最终得分 <span id="finalScore">0</span></p>
-            <button id="restartBtn" class="btn btn-primary">再来一局</button>
+            <h1>战役结束</h1>
+            <p class="stage-clear-name">抵达第 <span id="reachedStage">1</span> 关</p>
+            <p class="final-score">累计得分 <span id="finalScore">0</span></p>
+            <button id="restartBtn" class="btn btn-primary">重新闯关</button>
             <button id="manualFromGameOverBtn" class="text-link" type="button">查看游戏说明</button>
           </div>
         </div>
@@ -94,6 +111,18 @@
         <h1>游戏说明</h1>
         <p class="subtitle">完整指南</p>
         <div class="manual-scroll">
+
+          <section class="manual-section">
+            <h2>关卡战役</h2>
+            <p>游戏采用<strong>关卡制</strong>，共 9 个精心设计的关卡，之后进入无尽深空模式。每关敌机种类、道具池、彩蛋与 Boss 各不相同，难度逐步攀升。</p>
+            <ul>
+              <li>每关目标：击毁指定数量敌机（进度条显示在画布底部）</li>
+              <li>部分关卡清剿完毕后出现 <strong>Boss</strong>，击败 Boss 方可过关</li>
+              <li>拥有 <strong>3 条命</strong>，阵亡可在当前关复活；命尽则战役结束</li>
+              <li>每完成 3 关奖励 <strong>生命 +1</strong>（上限 5）</li>
+              <li>过关后点击「进入下一关」，生命与累计得分保留</li>
+            </ul>
+          </section>
 
           <section class="manual-section">
             <h2>基本操作</h2>

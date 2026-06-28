@@ -11,6 +11,15 @@
   const scoreEl = document.getElementById("score");
   const livesEl = document.getElementById("lives");
   const levelEl = document.getElementById("level");
+  const stageProgressEl = document.getElementById("stageProgress");
+  const stageClearOverlay = document.getElementById("stageClearOverlay");
+  const clearedStageEl = document.getElementById("clearedStage");
+  const clearedStageNameEl = document.getElementById("clearedStageName");
+  const stageClearScoreEl = document.getElementById("stageClearScore");
+  const stageClearTotalEl = document.getElementById("stageClearTotal");
+  const nextStageNameEl = document.getElementById("nextStageName");
+  const nextStageBtn = document.getElementById("nextStageBtn");
+  const reachedStageEl = document.getElementById("reachedStage");
   const buffEl = document.getElementById("buff");
   const statSpeed = document.getElementById("statSpeed");
   const statWeapon = document.getElementById("statWeapon");
@@ -36,14 +45,16 @@
   let mouseMarker = null;
   let gameState = "menu";
   let stateBeforeManual = "menu";
-  let score = 0;
+  let totalScore = 0;
+  let stageScore = 0;
+  let stageKills = 0;
   let lives = 3;
-  let level = 1;
+  let stage = 1;
   let frame = 0;
   let invincibleUntil = 0;
-  let nextBossAt = 3000;
-  let bossesDefeated = 0;
-  let nextAllyAt = 900;
+  let stageBossSpawned = false;
+  let stageAllySpawned = false;
+  let stageRebelSpawned = false;
   let pickupToast = null;
   let lastHealthFrame = -99999;
 
@@ -74,7 +85,6 @@
   let floatingTexts = [];
   let allies = [];
   let flybys = [];
-  let nextFlybyAt = 1800;
   let cheatBuffer = "";
   let titleClickCount = 0;
   let titleClickTimer = null;
@@ -146,8 +156,127 @@
     },
   };
 
-  const ENEMY_DROP_CHANCE = 0.06;
   const BOSS_DROP_CHANCE = 0.65;
+
+  const STAGE_DEFINITIONS = [
+    {
+      name: "前哨渗透", goalKills: 10, spawnRate: 84,
+      enemyPool: [{ type: "scout", weight: 1 }],
+      dropChance: 0.1,
+      powerupPool: ["power", "shield", "speed"],
+      powerupWeights: { power: 3, shield: 3, speed: 2 },
+      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: null,
+      tip: "击破 10 架侦察机，潜入敌前沿",
+    },
+    {
+      name: "乱流峡谷", goalKills: 14, spawnRate: 76,
+      enemyPool: [{ type: "scout", weight: 0.55 }, { type: "interceptor", weight: 0.45 }],
+      dropChance: 0.09,
+      powerupPool: ["power", "shield", "speed", "bomb"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 1 },
+      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: null,
+      tip: "拦截机加入战场，注意走位",
+    },
+    {
+      name: "幻影走廊", goalKills: 16, spawnRate: 72,
+      enemyPool: [{ type: "scout", weight: 0.35 }, { type: "phantom", weight: 0.65 }],
+      dropChance: 0.085,
+      powerupPool: ["power", "shield", "speed", "laser"],
+      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 2 },
+      easterEgg: { tie_patrol: 0.02 }, allyMission: true, rebelFlyby: false, boss: null,
+      tip: "幻影机蛇形移动 · 偶现帝国巡逻彩蛋",
+    },
+    {
+      name: "炮艇封锁线", goalKills: 18, spawnRate: 68,
+      enemyPool: [{ type: "interceptor", weight: 0.3 }, { type: "gunship", weight: 0.7 }],
+      dropChance: 0.08,
+      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
+      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 1 },
+      easterEgg: { tie_patrol: 0.025 }, allyMission: false, rebelFlyby: false, boss: null,
+      tip: "炮艇会开火，优先击毁",
+    },
+    {
+      name: "突击者要塞", goalKills: 15, spawnRate: 70,
+      enemyPool: [{ type: "scout", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
+      dropChance: 0.09,
+      powerupPool: ["power", "shield", "speed", "laser"],
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2 },
+      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: "assault",
+      tip: "清剿敌机后，重装突击者 Boss 登场",
+    },
+    {
+      name: "幽灵宙域", goalKills: 20, spawnRate: 64,
+      enemyPool: [{ type: "phantom", weight: 0.45 }, { type: "wraith", weight: 0.55 }],
+      dropChance: 0.075,
+      powerupPool: ["power", "shield", "speed", "laser"],
+      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 3 },
+      easterEgg: { tie_patrol: 0.03 }, allyMission: true, rebelFlyby: true, boss: null,
+      tip: "幽灵舰出没 · 可能遭遇同盟侦察彩蛋",
+    },
+    {
+      name: "母舰外围", goalKills: 22, spawnRate: 60,
+      enemyPool: [{ type: "gunship", weight: 0.35 }, { type: "carrier", weight: 0.65 }],
+      dropChance: 0.07,
+      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
+      easterEgg: {}, allyMission: false, rebelFlyby: false, boss: "commander",
+      tip: "幻影指挥舰率援军而来",
+    },
+    {
+      name: "陨石风暴带", goalKills: 24, spawnRate: 56,
+      enemyPool: [{ type: "meteor", weight: 0.5 }, { type: "wraith", weight: 0.5 }],
+      dropChance: 0.065,
+      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
+      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 2 },
+      easterEgg: { dark_interceptor: 0.012 }, allyMission: true, rebelFlyby: false, boss: null,
+      tip: "重型陨石舰 · 稀有黑暗先锋彩蛋",
+    },
+    {
+      name: "雷暴核心", goalKills: 18, spawnRate: 58,
+      enemyPool: [{ type: "carrier", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
+      dropChance: 0.08,
+      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 2 },
+      easterEgg: { tie_patrol: 0.02, dark_interceptor: 0.008 }, allyMission: false, rebelFlyby: true, boss: "storm",
+      tip: "终极试炼：雷暴母舰镇守此关",
+    },
+  ];
+
+  function getStageDef(n) {
+    if (n <= STAGE_DEFINITIONS.length) return STAGE_DEFINITIONS[n - 1];
+    const tier = n - STAGE_DEFINITIONS.length;
+    const bosses = ["assault", "commander", "storm"];
+    const pool = [
+      { type: "scout", weight: 0.15 },
+      { type: "interceptor", weight: 0.15 },
+      { type: "phantom", weight: 0.15 },
+      { type: "gunship", weight: 0.2 },
+      { type: "wraith", weight: 0.15 },
+      { type: "carrier", weight: 0.1 },
+      { type: "meteor", weight: 0.1 },
+    ];
+    return {
+      name: `深空战区 ${n}`,
+      goalKills: 20 + tier * 4,
+      spawnRate: Math.max(42, 58 - tier * 2),
+      enemyPool: pool,
+      dropChance: Math.max(0.05, 0.07 - tier * 0.002),
+      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
+      easterEgg: {
+        tie_patrol: 0.015 + tier * 0.002,
+        dark_interceptor: tier >= 2 ? 0.006 : 0,
+      },
+      allyMission: tier % 2 === 0,
+      rebelFlyby: tier % 3 === 1,
+      boss: tier % 4 === 0 ? bosses[Math.floor(tier / 4) % bosses.length] : null,
+      tip: "无尽深空，难度持续攀升",
+    };
+  }
+
+  function getStageDropChance() {
+    return getStageDef(stage).dropChance;
+  }
 
   function initBackground() {
     cosmos = sprites.initCosmos(W, H);
@@ -203,31 +332,72 @@
     return `${perSec}/s`;
   }
 
-  function resetGame() {
-    score = 0; lives = 3; level = 1; frame = 0;
-    invincibleUntil = 0; nextBossAt = 3000; bossesDefeated = 0;
-    nextAllyAt = 900; pickupToast = null;
-    lastHealthFrame = -99999;
+  function clearBattlefield() {
+    bullets = []; enemyBullets = []; enemies = [];
+    powerUps = []; particles = []; floatingTexts = [];
+    allies = []; flybys = [];
     mouseTarget = null; mouseMarker = null;
+    pickupToast = null;
+  }
+
+  function resetPlayerPosition() {
     player.x = W / 2; player.y = H - 80;
     player.prevX = player.x; player.prevY = player.y;
     player.shootCooldown = 0;
     playerTrail = [];
+  }
+
+  function resetCampaign() {
+    totalScore = 0; stageScore = 0; stageKills = 0;
+    lives = 3; stage = 1; frame = 0;
+    invincibleUntil = 0;
+    stageBossSpawned = false;
+    stageAllySpawned = false;
+    stageRebelSpawned = false;
+    lastHealthFrame = -99999;
     resetBuffs();
-    bullets = []; enemyBullets = []; enemies = [];
-    powerUps = []; particles = []; floatingTexts = []; allies = [];
-    flybys = []; nextFlybyAt = score + 2200 + Math.random() * 2000;
-    updateHUD();
+    clearBattlefield();
+    resetPlayerPosition();
     initBackground();
+    updateHUD();
+  }
+
+  function startStage(n) {
+    stage = n;
+    stageScore = 0;
+    stageKills = 0;
+    frame = 0;
+    stageBossSpawned = false;
+    stageAllySpawned = false;
+    stageRebelSpawned = false;
+    invincibleUntil = frame + 90;
+    clearBattlefield();
+    resetBuffs();
+    resetPlayerPosition();
+    initBackground();
+
+    const def = getStageDef(stage);
+    showFloatingText(W / 2, H / 2 - 20, `第 ${stage} 关`, "#00e5ff", 95);
+    showFloatingText(W / 2, H / 2 + 8, def.name, "#ffd700", 100);
+    showFloatingText(W / 2, H / 2 + 36, def.tip, "#8ecdb0", 90);
+    updateHUD();
   }
 
   function updateHUD() {
-    scoreEl.textContent = score;
+    const def = getStageDef(stage);
+    scoreEl.textContent = totalScore;
     livesEl.textContent = lives;
     if (livesEl) {
       livesEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : "#00e5ff";
     }
-    levelEl.textContent = level;
+    if (levelEl) levelEl.textContent = stage;
+    if (stageProgressEl) {
+      const goal = def.goalKills;
+      stageProgressEl.textContent = def.boss && stageBossSpawned
+        ? "Boss"
+        : `${stageKills}/${goal}`;
+      stageProgressEl.style.color = stageKills >= goal ? "#8ecdb0" : "#d0e4f8";
+    }
 
     const active = [];
     if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s`);
@@ -293,14 +463,16 @@
   }
 
   function pickRandomPowerUpType() {
-    const entries = Object.entries(POWERUP_TYPES).filter(([, cfg]) => cfg.weight > 0);
-    const total = entries.reduce((s, [, c]) => s + c.weight, 0);
+    const def = getStageDef(stage);
+    const pool = def.powerupPool || ["power", "shield", "speed"];
+    const weights = def.powerupWeights || {};
+    const total = pool.reduce((s, t) => s + (weights[t] || POWERUP_TYPES[t]?.weight || 1), 0);
     let roll = Math.random() * total;
-    for (const [type, cfg] of entries) {
-      roll -= cfg.weight;
+    for (const type of pool) {
+      roll -= weights[type] || POWERUP_TYPES[type]?.weight || 1;
       if (roll <= 0) return type;
     }
-    return "power";
+    return pool[0];
   }
 
   function spawnPowerUp(x, y, forcedType) {
@@ -314,16 +486,20 @@
   }
 
   function pickEnemyType() {
+    const def = getStageDef(stage);
     const r = Math.random();
-    if (score >= 5000 && r < 0.004) return "dark_interceptor";
-    if (level >= 2 && r >= 0.004 && r < 0.022) return "tie_patrol";
-    if (level >= 5 && r < 0.08) return "meteor";
-    if (level >= 4 && r < 0.16) return "carrier";
-    if (level >= 4 && r < 0.26) return "wraith";
-    if (level >= 3 && r < 0.36) return "gunship";
-    if (level >= 2 && r < 0.50) return "phantom";
-    if (level >= 2 && r < 0.68) return "interceptor";
-    return "scout";
+    const egg = def.easterEgg || {};
+    if (egg.dark_interceptor && r < egg.dark_interceptor) return "dark_interceptor";
+    if (egg.tie_patrol && r < (egg.tie_patrol + (egg.dark_interceptor || 0))) return "tie_patrol";
+
+    const pool = def.enemyPool;
+    const total = pool.reduce((s, e) => s + e.weight, 0);
+    let roll = Math.random() * total;
+    for (const entry of pool) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.type;
+    }
+    return pool[0].type;
   }
 
   function createEnemy(type, x, y, overrides = {}) {
@@ -334,7 +510,7 @@
       y: y ?? -cfg.height,
       width: cfg.width, height: cfg.height,
       hp: cfg.hp, maxHp: cfg.hp,
-      speed: cfg.speed + level * 0.04,
+      speed: cfg.speed + (stage - 1) * 0.04,
       noRotate: cfg.noRotate || false,
       patrolDrift: cfg.patrolDrift || false,
       easterEgg: cfg.easterEgg || false,
@@ -400,11 +576,16 @@
     flybys.push(flyby);
     spawnRebelPursuers(flyby);
     showFloatingText(W / 2, 72, "同盟侦察机遭追击！开火掩护其突围", "#74c0fc", 100);
-    nextFlybyAt = score + 3500 + Math.random() * 3000;
+  }
+
+  function addScore(pts) {
+    totalScore += pts;
+    stageScore += pts;
+    updateHUD();
   }
 
   function completeRebelMission(flyby) {
-    score += 888;
+    addScore(888);
     audio.playAllySuccess();
     spawnPowerUp(flyby.x, flyby.y, Math.random() < 0.5 ? "shield" : "power");
     showFloatingText(flyby.x, flyby.y - 20, "掩护成功！原力与你同在", "#74c0fc", 110);
@@ -417,14 +598,64 @@
     clearRebelPursuers();
   }
 
-  function spawnBoss() {
-    const types = ["assault", "commander", "storm"];
-    const type = types[bossesDefeated % types.length];
-    const boss = createEnemy(type, W / 2, -BOSS_TYPES[type].height);
+  function spawnStageBoss(bossType) {
+    const boss = createEnemy(bossType, W / 2, -BOSS_TYPES[bossType].height);
     boss.entering = true;
     enemies.push(boss);
     audio.playBoss();
-    showFloatingText(W / 2, 80, `⚠ ${BOSS_TYPES[type].name} 来袭!`, "#ffd700", 120);
+    showFloatingText(W / 2, 80, `⚠ ${BOSS_TYPES[bossType].name} 来袭!`, "#ffd700", 120);
+    updateHUD();
+  }
+
+  function countsTowardStageGoal(enemy) {
+    return !enemy.rebelPursuer && !enemy.easterEgg && !enemy.isBoss;
+  }
+
+  function checkStageComplete() {
+    if (gameState !== "playing") return;
+    const def = getStageDef(stage);
+    if (stageKills < def.goalKills) return;
+    if (def.boss) {
+      if (!stageBossSpawned) {
+        stageBossSpawned = true;
+        spawnStageBoss(def.boss);
+        return;
+      }
+      if (enemies.some((e) => e.isBoss)) return;
+    }
+    completeStage();
+  }
+
+  function completeStage() {
+    if (gameState !== "playing") return;
+    gameState = "stageClear";
+    audio.stopBgm();
+    enemyBullets = [];
+    clearRebelPursuers();
+
+    if (stageClearOverlay) {
+      const def = getStageDef(stage);
+      if (clearedStageEl) clearedStageEl.textContent = stage;
+      if (clearedStageNameEl) clearedStageNameEl.textContent = def.name;
+      if (stageClearScoreEl) stageClearScoreEl.textContent = stageScore;
+      if (stageClearTotalEl) stageClearTotalEl.textContent = totalScore;
+      const nextDef = getStageDef(stage + 1);
+      if (nextStageNameEl) nextStageNameEl.textContent = nextDef.name;
+      stageClearOverlay.classList.remove("hidden");
+    }
+
+    if (stage % 3 === 0 && lives < MAX_LIVES) {
+      lives++;
+      showEasterEggToast(`连续突破 ${stage} 关！奖励生命 +1`);
+    }
+    updateHUD();
+  }
+
+  function proceedToNextStage() {
+    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
+    startStage(stage + 1);
+    gameState = "playing";
+    audio.startBgm();
   }
 
   function spawnAlly() {
@@ -474,12 +705,11 @@
       });
       showFloatingText(W / 2, 100, "医疗救援舰抵达! 护航可获得生命补给", "#ff6b9d", 110);
     }
-    nextAllyAt = score + 2500 + Math.random() * 1500;
   }
 
   function completeAllyMission(ally) {
     audio.playAllySuccess();
-    score += 300;
+    addScore(300);
 
     if (ally.kind === "medical") {
       if (trySpawnHealthDrop(ally.x, ally.y + 20)) {
@@ -526,13 +756,23 @@
       case "bomb":
         enemies.filter((e) => !e.isBoss).forEach((e) => {
           spawnParticles(e.x, e.y, e.color, 8);
-          score += e.score;
-          if (e.rebelPursuer) registerRebelPursuerKill();
+          if (e.rebelPursuer) {
+            registerRebelPursuerKill();
+          } else if (countsTowardStageGoal(e)) {
+            stageKills++;
+            totalScore += e.score;
+            stageScore += e.score;
+          } else {
+            totalScore += e.score;
+            stageScore += e.score;
+          }
         });
         enemies = enemies.filter((e) => e.isBoss);
         enemyBullets = [];
         spawnParticles(W / 2, H / 2, "#f39c12", 40);
         audio.playExplode();
+        updateHUD();
+        checkStageComplete();
         break;
       case "health":
         if (lives < MAX_LIVES) {
@@ -702,9 +942,24 @@
     enemyBullets = enemyBullets.filter((b) => { b.x += b.vx; b.y += b.vy; return b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20; });
   }
 
+  function tryStageEvents() {
+    const def = getStageDef(stage);
+    if (def.allyMission && !stageAllySpawned && stageKills >= Math.floor(def.goalKills * 0.45) && allies.length === 0) {
+      stageAllySpawned = true;
+      spawnAlly();
+    }
+    if (def.rebelFlyby && !stageRebelSpawned && flybys.length === 0 && stageKills >= Math.max(3, Math.floor(def.goalKills * 0.35))) {
+      stageRebelSpawned = true;
+      spawnRebelFlyby(true);
+    }
+  }
+
   function updateEnemies() {
+    const def = getStageDef(stage);
     const hasBoss = enemies.some((e) => e.isBoss);
-    if (!hasBoss && frame % Math.max(28, 85 - level * 7) === 0) spawnEnemy();
+    const goalMet = stageKills >= def.goalKills;
+    if (!hasBoss && !(goalMet && def.boss) && frame % def.spawnRate === 0) spawnEnemy();
+    tryStageEvents();
 
     enemies.forEach((e) => {
       if (e.entering) { e.y += 1.2; if (e.y >= 100) e.entering = false; return; }
@@ -756,11 +1011,6 @@
   }
 
   function updateFlybys() {
-    if (flybys.length === 0 && score >= nextFlybyAt && gameState === "playing" && !enemies.some((e) => e.isBoss)) {
-      if (Math.random() < 0.55) spawnRebelFlyby(false);
-      else nextFlybyAt = score + 1800 + Math.random() * 1500;
-    }
-
     flybys = flybys.filter((flyby) => {
       flyby.x += flyby.speed;
       if (flyby.killCount >= flyby.killGoal) {
@@ -776,8 +1026,6 @@
   }
 
   function updateAllies() {
-    if (allies.length === 0 && score >= nextAllyAt && !enemies.some((e) => e.isBoss)) spawnAlly();
-
     allies.forEach((ally) => {
       if (ally.spawnProtection > 0) ally.spawnProtection--;
     });
@@ -807,11 +1055,15 @@
   }
 
   function updateBackground() {
-    if (cosmos) sprites.updateCosmos(cosmos, W, H, level, frame);
+    if (cosmos) sprites.updateCosmos(cosmos, W, H, stage, frame);
   }
 
   function killEnemy(enemy) {
-    score += enemy.score;
+    const pts = enemy.score;
+    totalScore += pts;
+    stageScore += pts;
+    if (countsTowardStageGoal(enemy)) stageKills++;
+
     spawnParticles(enemy.x, enemy.y, enemy.color, enemy.isBoss ? 35 : 12);
     audio.playExplode();
 
@@ -828,8 +1080,6 @@
       showFloatingText(enemy.x, enemy.y - 16, msg, enemy.accent, 100);
       if (enemy.type === "dark_interceptor") spawnPowerUp(enemy.x, enemy.y);
     } else if (enemy.isBoss) {
-      bossesDefeated++;
-      nextBossAt = score + 4000 + bossesDefeated * 2000;
       showFloatingText(enemy.x, enemy.y, `${enemy.bossName} 击破! +${enemy.score}`, "#ffd700", 90);
       if (canOfferHealth() && Math.random() < HEALTH_BOSS_CHANCE) {
         trySpawnHealthDrop(enemy.x - 20, enemy.y);
@@ -839,10 +1089,13 @@
     } else {
       if (lives === 1 && canOfferHealth() && Math.random() < HEALTH_CRITICAL_CHANCE) {
         trySpawnHealthDrop(enemy.x, enemy.y);
-      } else if (Math.random() < ENEMY_DROP_CHANCE) {
+      } else if (Math.random() < getStageDropChance()) {
         spawnPowerUp(enemy.x, enemy.y);
       }
     }
+
+    updateHUD();
+    checkStageComplete();
   }
 
   function damagePlayer() {
@@ -853,9 +1106,19 @@
       showFloatingText(player.x, player.y - 30, "护盾破碎!", "#3498db", 50);
       audio.playHit(); updateHUD(); return true;
     }
-    lives--; spawnParticles(player.x, player.y, "#00e5ff", 20);
-    invincibleUntil = frame + 120; audio.playDamage(); updateHUD();
-    if (lives <= 0) endGame();
+    lives--;
+    spawnParticles(player.x, player.y, "#00e5ff", 20);
+    invincibleUntil = frame + 120;
+    audio.playDamage();
+    if (lives <= 0) {
+      updateHUD();
+      endGame();
+    } else {
+      resetPlayerPosition();
+      enemyBullets = [];
+      showFloatingText(player.x, player.y - 40, `战死复活 · 剩余 ${lives} 条命`, "#ffd93d", 75);
+      updateHUD();
+    }
     return true;
   }
 
@@ -908,9 +1171,35 @@
       }
     }
 
-    const newLevel = Math.floor(score / 2000) + 1;
-    if (newLevel > level) { level = newLevel; showFloatingText(W / 2, H / 2, `等级 ${level}!`, "#00e5ff", 80); }
-    if (score >= nextBossAt && !enemies.some((e) => e.isBoss)) spawnBoss();
+  }
+
+  function drawStageBar() {
+    if (gameState !== "playing") return;
+    const def = getStageDef(stage);
+    const barW = W - 40;
+    const x = 20;
+    const y = H - 18;
+    const ratio = def.boss && stageBossSpawned
+      ? (enemies.some((e) => e.isBoss) ? 0.35 : 1)
+      : Math.min(1, stageKills / def.goalKills);
+
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillRect(x, y, barW, 6);
+    const grad = ctx.createLinearGradient(x, 0, x + barW, 0);
+    grad.addColorStop(0, "#38bdf8");
+    grad.addColorStop(1, "#a78bfa");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, barW * ratio, 6);
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.strokeRect(x, y, barW, 6);
+
+    ctx.fillStyle = "rgba(200,220,240,0.55)";
+    ctx.font = "9px Microsoft YaHei, sans-serif";
+    ctx.textAlign = "left";
+    const label = def.boss && stageBossSpawned && enemies.some((e) => e.isBoss)
+      ? `第 ${stage} 关 · ${def.name} · 击败 Boss`
+      : `第 ${stage} 关 · ${def.name}`;
+    ctx.fillText(label, x, y - 4);
   }
 
   function drawBackground() {
@@ -1199,6 +1488,7 @@
     drawParticles();
     drawFloatingTexts();
     drawBossBar();
+    drawStageBar();
     drawPickupToast();
   }
 
@@ -1272,12 +1562,14 @@
     showEasterEggToast(pool[Math.floor(Math.random() * pool.length)]);
   }
 
-  function beginPlaying(withTransition) {
+  function beginPlaying() {
+    startStage(stage);
     audio.startBgm();
     gameState = "playing";
     overlay.classList.add("hidden");
     overlay.classList.remove("is-exiting");
     gameOverOverlay.classList.add("hidden");
+    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
     canvas.classList.remove("is-entering");
     if (statsPanel) statsPanel.classList.remove("is-hidden");
   }
@@ -1285,10 +1577,10 @@
   function startGame(fromRestart) {
     if (gameState === "transition") return;
     audio.resume();
-    resetGame();
+    resetCampaign();
 
     if (fromRestart) {
-      beginPlaying(false);
+      beginPlaying();
       return;
     }
 
@@ -1298,13 +1590,15 @@
     canvas.classList.add("is-entering");
     if (statsPanel) statsPanel.classList.add("is-hidden");
 
-    setTimeout(() => beginPlaying(true), 680);
+    setTimeout(() => beginPlaying(), 680);
   }
 
   function endGame() {
     gameState = "gameover";
     audio.stopBgm();
-    finalScoreEl.textContent = score;
+    if (finalScoreEl) finalScoreEl.textContent = totalScore;
+    if (reachedStageEl) reachedStageEl.textContent = stage;
+    if (stageClearOverlay) stageClearOverlay.classList.add("hidden");
     gameOverOverlay.classList.remove("hidden");
   }
 
@@ -1328,6 +1622,10 @@
       tryCheatCode();
     }
     if (e.key === " " && gameState === "playing") e.preventDefault();
+    if ((e.key === "Enter" || e.key === " ") && gameState === "stageClear") {
+      e.preventDefault();
+      proceedToNextStage();
+    }
     if (e.key === "h" || e.key === "H") {
       if (gameState === "manual") closeManual();
       else openManual();
@@ -1350,6 +1648,7 @@
 
   startBtn.addEventListener("click", () => startGame(false));
   restartBtn.addEventListener("click", () => startGame(true));
+  if (nextStageBtn) nextStageBtn.addEventListener("click", proceedToNextStage);
   if (openManualBtn) openManualBtn.addEventListener("click", openManual);
   if (helpBtn) helpBtn.addEventListener("click", openManual);
   if (closeManualBtn) closeManualBtn.addEventListener("click", closeManual);
