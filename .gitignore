@@ -6,3 +6,9 @@ Thumbs.db
 # Cursor / Grok harness (not game source)
 mcps/
 terminals/
+
+# Local verify / tooling
+.verify-tmp/
+node_modules/
+package.json
+package-lock.json
