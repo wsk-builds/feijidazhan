@@ -11,46 +11,49 @@
     <div class="game-layout">
       <div class="game-main">
         <header class="hud">
-          <div class="hud-stats">
-            <div class="hud-item">
-              <span class="label">得分</span>
-              <span id="score">0</span>
-            </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item hud-lives">
-              <span class="label">战机</span>
-              <div class="hud-lives-wrap">
-                <div class="hud-lives-icons" id="livesIcons" aria-label="剩余战机"></div>
-                <span class="hud-lives-num" id="livesDisplay">3</span>
+          <div class="hud-content">
+            <div class="hud-row hud-row-primary">
+              <div class="hud-item">
+                <span class="label">得分</span>
+                <span id="score">0</span>
+              </div>
+              <div class="hud-divider"></div>
+              <div class="hud-item hud-lives">
+                <span class="label">战机</span>
+                <div class="hud-lives-wrap">
+                  <div class="hud-lives-icons" id="livesIcons" aria-label="剩余战机"></div>
+                  <span class="hud-lives-num" id="livesDisplay">3</span>
+                </div>
+              </div>
+              <div class="hud-divider"></div>
+              <div class="hud-item hud-hp">
+                <span class="label">耐久</span>
+                <div class="hud-hp-wrap">
+                  <div class="hud-hp-bar" id="playerHpBar" aria-label="战机耐久"></div>
+                  <span class="hud-hp-text" id="playerHpText">4/4</span>
+                </div>
+              </div>
+              <div class="hud-divider"></div>
+              <div class="hud-item">
+                <span class="label">关卡</span>
+                <span id="level">1</span>
               </div>
             </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item hud-hp">
-              <span class="label">耐久</span>
-              <div class="hud-hp-wrap">
-                <div class="hud-hp-bar" id="playerHpBar" aria-label="战机耐久"></div>
-                <span class="hud-hp-text" id="playerHpText">4/4</span>
+            <div class="hud-row hud-row-secondary">
+              <div class="hud-item hud-universe">
+                <span class="label">宇宙</span>
+                <span id="universeLabel" class="hud-universe-name">深空宙域</span>
               </div>
-            </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item hud-bombs">
-              <span class="label">炸药</span>
-              <span id="bombCharges" class="hud-bomb-value">—</span>
-            </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item hud-missiles">
-              <span class="label">导弹</span>
-              <span id="missileCharges" class="hud-missile-value">—</span>
-            </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item">
-              <span class="label">关卡</span>
-              <span id="level">1</span>
-            </div>
-            <div class="hud-divider"></div>
-            <div class="hud-item hud-universe">
-              <span class="label">宇宙</span>
-              <span id="universeLabel">深空宙域</span>
+              <div class="hud-arsenal">
+                <div class="hud-item hud-bombs">
+                  <span class="label">炸药</span>
+                  <span id="bombCharges" class="hud-arsenal-value">—</span>
+                </div>
+                <div class="hud-item hud-missiles">
+                  <span class="label">导弹</span>
+                  <span id="missileCharges" class="hud-arsenal-value">—</span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="hud-tools">
@@ -139,6 +142,14 @@
           <div class="stat-cell">
             <span class="stat-label">护盾</span>
             <span class="stat-value" id="statShield">无</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">炸药</span>
+            <span class="stat-value" id="statBombs">—</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">导弹</span>
+            <span class="stat-value" id="statMissiles">—</span>
           </div>
         </div>
         <div class="buff-list-title">增益</div>

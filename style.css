@@ -107,8 +107,9 @@ body[data-universe="3"] {
 /* ── HUD ── */
 .hud {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
   padding: 8px 10px;
   background: rgba(8, 16, 32, 0.75);
   border: 1px solid var(--u-accent-dim);
@@ -117,22 +118,43 @@ body[data-universe="3"] {
   transition: border-color 0.8s ease;
 }
 
-.hud-stats {
+.hud-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-row {
   display: flex;
   align-items: center;
-  gap: 0;
+  min-width: 0;
+}
+
+.hud-row-primary {
+  flex-wrap: wrap;
+  gap: 2px 0;
+}
+
+.hud-row-secondary {
+  padding-top: 6px;
+  border-top: 1px solid var(--u-accent-border);
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .hud-item {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  padding: 0 12px;
+  gap: 5px;
+  padding: 0 8px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.hud-item:first-child {
-  padding-left: 4px;
+.hud-row-primary .hud-item:first-child {
+  padding-left: 2px;
 }
 
 .hud-divider {
@@ -141,12 +163,32 @@ body[data-universe="3"] {
   background: var(--u-accent-border);
 }
 
-.hud-universe span:last-child {
-  font-size: 13px;
+.hud-universe {
+  flex: 1;
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.hud-universe-name {
+  font-size: 13px !important;
+  font-weight: 600;
   color: var(--u-accent);
-  max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  display: inline-block;
+}
+
+.hud-arsenal {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.hud-arsenal .hud-item {
+  padding: 0 6px;
 }
 
 .hud-hp .hud-hp-wrap {
@@ -214,11 +256,12 @@ body[data-universe="3"] {
   font-variant-numeric: tabular-nums;
 }
 
-.hud-bombs .hud-bomb-value,
-.hud-missiles .hud-missile-value {
-  font-size: 14px !important;
+.hud-arsenal-value {
+  font-size: 13px !important;
   font-weight: 700;
   letter-spacing: 0.02em;
+  min-width: 2.8em;
+  text-align: right;
 }
 
 .hud-item .label {
@@ -240,6 +283,8 @@ body[data-universe="3"] {
   padding: 3px;
   background: rgba(0, 0, 0, 0.25);
   border-radius: 8px;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .icon-btn {
@@ -350,6 +395,7 @@ body[data-universe="3"] {
   opacity: 0;
   pointer-events: none;
   transform: translateX(8px);
+  visibility: hidden;
 }
 
 .stats-title {
@@ -479,7 +525,7 @@ body[data-universe="3"] {
 .overlay {
   position: absolute;
   inset: 0;
-  top: 48px;
+  top: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -535,7 +581,8 @@ body[data-universe="3"] {
 }
 
 .panel-compact {
-  width: 280px;
+  width: min(300px, calc(100% - 32px));
+  max-width: 300px;
   padding: 36px 32px 28px;
 }
 

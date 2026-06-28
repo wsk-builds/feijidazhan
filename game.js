@@ -40,6 +40,8 @@
   const statDamage = document.getElementById("statDamage");
   const statFireRate = document.getElementById("statFireRate");
   const statShield = document.getElementById("statShield");
+  const statBombsEl = document.getElementById("statBombs");
+  const statMissilesEl = document.getElementById("statMissiles");
   const buffListEl = document.getElementById("buffList");
   const overlay = document.getElementById("overlay");
   const gameOverOverlay = document.getElementById("gameOverOverlay");
@@ -268,9 +270,15 @@
     });
   }
 
+  function setStatsPanelVisible(visible) {
+    if (!statsPanel) return;
+    statsPanel.classList.toggle("is-hidden", !visible);
+  }
+
   function showOverlay(el) {
     hideAllOverlays();
     if (el) el.classList.remove("hidden");
+    setStatsPanelVisible(false);
   }
 
   if (ctx && !ctx.roundRect) {
@@ -669,6 +677,14 @@
     if (missileChargesEl) {
       missileChargesEl.textContent = missileCharges > 0 ? `🚀×${missileCharges}` : "—";
       missileChargesEl.style.color = missileCharges > 0 ? "#ff6b35" : "rgba(140,190,230,0.45)";
+    }
+    if (statBombsEl) {
+      statBombsEl.textContent = bombCharges > 0 ? `💣×${bombCharges}` : "—";
+      statBombsEl.style.color = bombCharges > 0 ? "#f39c12" : "#5a7a9a";
+    }
+    if (statMissilesEl) {
+      statMissilesEl.textContent = missileCharges > 0 ? `🚀×${missileCharges}` : "—";
+      statMissilesEl.style.color = missileCharges > 0 ? "#ff6b35" : "#5a7a9a";
     }
     if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
 
@@ -2338,7 +2354,7 @@
     audio.startBgm();
     gameState = "playing";
     canvas.classList.remove("is-entering");
-    if (statsPanel) statsPanel.classList.remove("is-hidden");
+    setStatsPanelVisible(true);
   }
 
   function startGame(fromRestart) {
@@ -2355,8 +2371,6 @@
     showOverlay(overlay);
     overlay.classList.add("is-exiting");
     canvas.classList.add("is-entering");
-    if (statsPanel) statsPanel.classList.add("is-hidden");
-
     setTimeout(() => beginPlaying(), 680);
   }
 
@@ -2384,6 +2398,7 @@
       else if (gameState === "stageClear") showOverlay(stageClearOverlay);
       else if (gameState === "universeJump") showOverlay(universeJumpOverlay);
       else if (gameState === "gameover") showOverlay(gameOverOverlay);
+      else if (gameState === "playing") setStatsPanelVisible(true);
     }
   }
 
