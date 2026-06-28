@@ -74,8 +74,8 @@
   const mobileTutorialDismiss = document.getElementById("mobileTutorialDismiss");
 
   const MOBILE_TUTORIAL_KEY = "feijidazhan_mobile_tutorial_v1";
-  const TOUCH_DRAG_LERP = 0.24;
-  const MOBILE_SPEED_SCALE = 0.72;
+  const TOUCH_DRAG_LERP = 0.30;
+  const MOBILE_SPEED_SCALE = 0.76;
 
   const keys = {};
   let mouseTarget = null;
@@ -251,7 +251,7 @@
       label: "炸药", fullName: "炸药包", shortDesc: "储备+1",
       desc: "获得 1 枚炸药储备，按 B 在屏幕布设下行地雷（预判 Boss 位置）",
       color: "#f39c12", bgColor: "#3a2200", borderColor: "#f5b041",
-      icon: "bomb", duration: 0, weight: 4,
+      icon: "bomb", duration: 0, weight: 3,
     },
     health: {
       label: "回血", fullName: "耐久补给", shortDesc: "耐久+1",
@@ -275,13 +275,13 @@
       label: "导弹", fullName: "追踪导弹", shortDesc: "储备+1",
       desc: "获得 1 次导弹齐射储备，按 V 发射 3 枚追踪导弹（优先锁定 Boss）",
       color: "#ff6b35", bgColor: "#3a1500", borderColor: "#ff8c42",
-      icon: "missile", duration: 0, weight: 4,
+      icon: "missile", duration: 0, weight: 3,
     },
   };
 
-  const BOSS_DROP_CHANCE = 0.82;
-  const BOSS_MISSILE_CHANCE = 0.68;
-  const BOSS_BOMB_CHANCE = 0.48;
+  const BOSS_DROP_CHANCE = 0.72;
+  const BOSS_MISSILE_CHANCE = 0.52;
+  const BOSS_BOMB_CHANCE = 0.34;
 
   const BASE_ENEMY_COLORS = {};
   Object.keys(ENEMY_TYPES).forEach((k) => {
@@ -463,81 +463,81 @@
     {
       name: "前哨渗透", goalKills: 10, spawnRate: 68,
       enemyPool: [{ type: "scout", weight: 1 }],
-      dropChance: 0.12,
+      dropChance: 0.11,
       powerupPool: ["power", "shield", "speed", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 2, bomb: 4, missile: 4 },
+      powerupWeights: { power: 3, shield: 3, speed: 2, bomb: 3, missile: 3 },
       allyMission: false, rebelFlyby: false,
       tip: "击破 10 架侦察机，小怪持续来袭，达标后关底 Boss 登场",
     },
     {
       name: "乱流峡谷", goalKills: 14, spawnRate: 76,
       enemyPool: [{ type: "scout", weight: 0.55 }, { type: "interceptor", weight: 0.45 }],
-      dropChance: 0.12,
+      dropChance: 0.11,
       powerupPool: ["power", "shield", "speed", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 4, missile: 4 },
       allyMission: false, rebelFlyby: false,
       tip: "拦截机加入战场，注意走位",
     },
     {
       name: "幻影走廊", goalKills: 16, spawnRate: 72,
       enemyPool: [{ type: "scout", weight: 0.35 }, { type: "phantom", weight: 0.65 }],
-      dropChance: 0.11,
+      dropChance: 0.10,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 2, bomb: 4, missile: 4 },
+      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 2, bomb: 3, missile: 3 },
       allyMission: true, rebelFlyby: false,
       tip: "幻影机蛇形移动 · 偶现宇宙彩蛋敌机",
     },
     {
       name: "炮艇封锁线", goalKills: 18, spawnRate: 68,
       enemyPool: [{ type: "interceptor", weight: 0.3 }, { type: "gunship", weight: 0.7 }],
-      dropChance: 0.11,
+      dropChance: 0.10,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 4, missile: 4 },
       allyMission: false, rebelFlyby: false,
       tip: "炮艇会开火，优先击毁",
     },
     {
       name: "突击者要塞", goalKills: 15, spawnRate: 70,
       enemyPool: [{ type: "scout", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
-      dropChance: 0.11,
+      dropChance: 0.10,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 4, missile: 4 },
       allyMission: false, rebelFlyby: false,
       tip: "本关镇守大 Boss，达标后立即决战",
     },
     {
       name: "幽灵宙域", goalKills: 20, spawnRate: 64,
       enemyPool: [{ type: "phantom", weight: 0.45 }, { type: "wraith", weight: 0.55 }],
-      dropChance: 0.1,
+      dropChance: 0.09,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 3, bomb: 4, missile: 4 },
+      powerupWeights: { power: 2, shield: 2, speed: 2, laser: 3, bomb: 3, missile: 3 },
       allyMission: true, rebelFlyby: true,
       tip: "幽灵舰出没 · 可能遭遇同盟侦察彩蛋",
     },
     {
       name: "母舰外围", goalKills: 22, spawnRate: 60,
       enemyPool: [{ type: "gunship", weight: 0.35 }, { type: "carrier", weight: 0.65 }],
-      dropChance: 0.1,
+      dropChance: 0.09,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 4, missile: 4 },
       allyMission: false, rebelFlyby: false,
       tip: "母舰编队压境，达标后关底 Boss 登场",
     },
     {
       name: "陨石风暴带", goalKills: 24, spawnRate: 56,
       enemyPool: [{ type: "meteor", weight: 0.5 }, { type: "wraith", weight: 0.5 }],
-      dropChance: 0.095,
+      dropChance: 0.085,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 4, missile: 4 },
       allyMission: true, rebelFlyby: false,
       tip: "重型陨石舰横冲直撞",
     },
     {
       name: "雷暴核心", goalKills: 18, spawnRate: 58,
       enemyPool: [{ type: "carrier", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
-      dropChance: 0.11,
+      dropChance: 0.10,
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 6, missile: 6 },
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 5, missile: 5 },
       allyMission: false, rebelFlyby: true,
       tip: "雷暴走廊，弹幕密集",
     },
@@ -579,9 +579,9 @@
       goalKills: 20 + tier * 4,
       spawnRate: Math.max(42, 58 - tier * 2),
       enemyPool: pool,
-      dropChance: Math.max(0.065, 0.085 - tier * 0.002),
+      dropChance: Math.max(0.06, 0.075 - tier * 0.002),
       powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 5, missile: 5 },
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 4, missile: 4 },
       allyMission: tier % 2 === 0,
       rebelFlyby: tier % 3 === 1,
     }, n);
@@ -1719,7 +1719,7 @@
     } else if (isMobileUI && touchDrag.active) {
       const mdx = (touchDrag.x - player.x) * TOUCH_DRAG_LERP;
       const mdy = (touchDrag.y - player.y) * TOUCH_DRAG_LERP;
-      const cap = player.speed * 0.85;
+      const cap = player.speed * 1.0;
       const dist = Math.hypot(mdx, mdy);
       if (dist > cap) {
         const s = cap / dist;
@@ -1974,7 +1974,7 @@
         trySpawnLifeDrop(enemy.x + 20, enemy.y);
       }
       if (Math.random() < BOSS_DROP_CHANCE) spawnPowerUp(enemy.x, enemy.y);
-      if (Math.random() < BOSS_DROP_CHANCE * 0.55) spawnPowerUp(enemy.x + 25, enemy.y);
+      if (Math.random() < BOSS_DROP_CHANCE * 0.45) spawnPowerUp(enemy.x + 25, enemy.y);
       if (Math.random() < BOSS_MISSILE_CHANCE) spawnPowerUp(enemy.x - 20, enemy.y + 15, "missile");
       if (Math.random() < BOSS_BOMB_CHANCE) spawnPowerUp(enemy.x + 15, enemy.y + 20, "bomb");
     } else {
