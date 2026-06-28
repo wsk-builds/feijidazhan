@@ -968,6 +968,37 @@ body.is-mobile-ui .start-hint-mobile {
   display: none;
 }
 
+.lang-switch {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 14px 0 10px;
+}
+
+.lang-btn {
+  padding: 6px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 180, 255, 0.22);
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(160, 200, 240, 0.65);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lang-btn.is-active {
+  background: rgba(100, 180, 255, 0.14);
+  border-color: rgba(100, 180, 255, 0.38);
+  color: #e8f4ff;
+}
+
+.lang-btn:active {
+  transform: scale(0.97);
+}
+
 body.is-mobile-ui .stats-panel {
   position: fixed;
   left: 0;

@@ -1,7 +1,7 @@
 {
-  "name": "飞机大战",
-  "short_name": "飞机大战",
-  "description": "关卡制飞机大战 — 暗影刺客直插敌巢",
+  "name": "飞机大战 / Sky Strike",
+  "short_name": "Sky Strike",
+  "description": "Stage-based shoot-em-up — Shadow Assassin strikes the enemy fortress",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

@@ -8,6 +8,7 @@
   const audio = window.GameAudio;
   const sprites = window.GameSprites;
   const themes = window.GameThemes;
+  const i18n = window.GameI18n;
 
   const scoreEl = document.getElementById("score");
   const playerHpBarEl = document.getElementById("playerHpBar");
@@ -27,13 +28,13 @@
   const jumpSkipBtn = document.getElementById("jumpSkipBtn");
   const universeLabelEl = document.getElementById("universeLabel");
   const stageClearOverlay = document.getElementById("stageClearOverlay");
-  const clearedStageEl = document.getElementById("clearedStage");
-  const clearedStageNameEl = document.getElementById("clearedStageName");
+  const stageClearLineEl = document.getElementById("stageClearLine");
   const stageClearScoreEl = document.getElementById("stageClearScore");
   const stageClearTotalEl = document.getElementById("stageClearTotal");
-  const nextStageNameEl = document.getElementById("nextStageName");
+  const nextStageLineEl = document.getElementById("nextStageLine");
   const nextStageBtn = document.getElementById("nextStageBtn");
-  const reachedStageEl = document.getElementById("reachedStage");
+  const reachedStageLineEl = document.getElementById("reachedStageLine");
+  const universeJumpBossLineEl = document.getElementById("universeJumpBossLine");
   const buffEl = document.getElementById("buff");
   const statSpeed = document.getElementById("statSpeed");
   const statWeapon = document.getElementById("statWeapon");
@@ -138,7 +139,7 @@
   const buffs = { power: 0, shield: 0, speed: 0, laser: 0 };
   const buffStacks = { power: 0, shield: 0, speed: 0, laser: 0 };
   const MAX_BUFF_STACK = 3;
-  const BUFF_LABELS = { power: "三连火力", shield: "能量护盾", speed: "推进加速", laser: "穿透激光" };
+  const CHEAT_CODES = ["maytheforce", "darkside", "omega7"];
 
   let bullets = [];
   let enemyBullets = [];
@@ -289,6 +290,60 @@
       el.classList.add("hidden");
       el.classList.remove("is-exiting");
     });
+  }
+
+  function getPU(key) {
+    return { ...POWERUP_TYPES[key], ...i18n.powerup(key) };
+  }
+
+  function gameFont(size, weight) {
+    const fam = i18n.getLang() === "en" ? "Segoe UI, sans-serif" : "Microsoft YaHei, sans-serif";
+    return `${weight || "bold"} ${size}px ${fam}`;
+  }
+
+  function relocalizeEntities() {
+    enemies.forEach((e) => {
+      if (e.isBoss) e.bossName = i18n.entity(e.type);
+      if (e.easterEgg || e.codename) e.codename = i18n.entity(e.type);
+    });
+    allies.forEach((a) => {
+      a.name = i18n.allyName(a.kind);
+      a.hint = i18n.allyHint(a.kind);
+    });
+    flybys.forEach((f) => {
+      if (f.kind === "rebel_scout") {
+        f.codename = i18n.entity("rebel_scout");
+        f.hint = i18n.t("rebel.hint");
+      }
+    });
+    if (pickupToast && pickupToast.powerKey) {
+      const cfg = getPU(pickupToast.powerKey);
+      pickupToast.text = i18n.floatMsg("pickupToast", { name: cfg.fullName, desc: cfg.desc });
+    }
+  }
+
+  function refreshI18n() {
+    i18n.applyDOM();
+    document.title = i18n.t("ui.gameTitle");
+    const manualScrollEl = document.getElementById("manualScroll");
+    if (manualScrollEl) manualScrollEl.innerHTML = i18n.getManualHtml();
+    const langZhBtn = document.getElementById("langZhBtn");
+    const langEnBtn = document.getElementById("langEnBtn");
+    if (langZhBtn) langZhBtn.classList.toggle("is-active", i18n.getLang() === "zh");
+    if (langEnBtn) langEnBtn.classList.toggle("is-active", i18n.getLang() === "en");
+
+    if (hudSecretEl) hudSecretEl.title = i18n.t("ui.hudSecretTitle");
+    bindManualEasterEgg();
+    if (universeLabelEl) universeLabelEl.textContent = i18n.themeName(universeIndex);
+    relocalizeEntities();
+    updateHUD();
+  }
+
+  function bindManualEasterEgg() {
+    const el = document.getElementById("manualEasterEgg");
+    if (!el) return;
+    el.title = i18n.t("easter.manualNoteTitle");
+    el.onclick = () => showEasterEggToast(i18n.t("easter.manualNote"));
   }
 
   function detectMobileUI() {
@@ -465,17 +520,20 @@
   function enrichStageDef(base, n) {
     const uni = themes.getUniverseIndex(n);
     const theme = themes.getTheme(uni);
-    const bossName = themes.getEndBossName(n);
+    const endBossType = themes.getEndBossType(n);
     const isMega = themes.isMegaStage(n);
+    const name = n <= STAGE_DEFINITIONS.length ? i18n.stageName(n) : i18n.endlessStageName(n);
+    const tip = i18n.stageTip(n);
     return {
       ...base,
       universeIndex: uni,
       theme,
-      endBossType: themes.getEndBossType(n),
-      endBossName: bossName,
+      endBossType,
+      endBossName: i18n.entity(endBossType),
       isMegaStage: isMega,
+      name,
+      tip,
       easterEgg: { [theme.easterEggType]: theme.easterEggChance },
-      tip: base.tip || `清剿 ${base.goalKills} 架敌机，达标后 ${bossName} 登场`,
     };
   }
 
@@ -492,7 +550,6 @@
       { type: "meteor", weight: 0.1 },
     ];
     return enrichStageDef({
-      name: `${themes.getTheme(themes.getUniverseIndex(n)).name} · 战区 ${n}`,
       goalKills: 20 + tier * 4,
       spawnRate: Math.max(42, 58 - tier * 2),
       enemyPool: pool,
@@ -501,7 +558,6 @@
       powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 3, missile: 3 },
       allyMission: tier % 2 === 0,
       rebelFlyby: tier % 3 === 1,
-      tip: "无尽深空，难度持续攀升",
     }, n);
   }
 
@@ -538,7 +594,7 @@
     currentTheme = themes.getTheme(universeIndex);
     playerThemePalette = currentTheme.player;
     document.body.dataset.universe = String(universeIndex);
-    if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
+    if (universeLabelEl) universeLabelEl.textContent = i18n.themeName(universeIndex);
     applyThemedEnemyColors();
     applyThemedPowerupColors();
     initBackground();
@@ -560,7 +616,7 @@
     }
     buffs[key] = duration;
     if (wasActive && buffStacks[key] > 1) {
-      showFloatingText(player.x, player.y - 62, `${BUFF_LABELS[key]} x${buffStacks[key]} 强化!`, cfg.color, 80);
+      showFloatingText(player.x, player.y - 62, i18n.t("buff.stackBoost", { name: i18n.buffLabel(key), n: buffStacks[key] }), cfg.color, 80);
     }
     if (key === "speed") syncPlayerSpeed();
   }
@@ -574,9 +630,9 @@
 
   function getSpeedBonusLabel() {
     if (buffs.speed <= 0) return "";
-    if (buffStacks.speed >= 3) return " (+115%)";
-    if (buffStacks.speed >= 2) return " (+95%)";
-    return " (+75%)";
+    if (buffStacks.speed >= 3) return i18n.t("ui.speedBonus115");
+    if (buffStacks.speed >= 2) return i18n.t("ui.speedBonus95");
+    return i18n.t("ui.speedBonus75");
   }
 
   function getLaserDamage() {
@@ -609,12 +665,12 @@
   function getWeaponModeText() {
     const parts = [];
     if (buffs.laser > 0) {
-      parts.push(buffStacks.laser > 1 ? `穿透激光 x${buffStacks.laser}` : "穿透激光");
+      parts.push(buffStacks.laser > 1 ? i18n.t("ui.weaponLaserStack", { n: buffStacks.laser }) : i18n.t("ui.weaponLaser"));
     }
     if (buffs.power > 0) {
-      parts.push(buffStacks.power > 1 ? `三连散射 x${buffStacks.power}` : "三连散射");
+      parts.push(buffStacks.power > 1 ? i18n.t("ui.weaponPowerStack", { n: buffStacks.power }) : i18n.t("ui.weaponPower"));
     }
-    return parts.length ? parts.join(" + ") : "标准单发";
+    return parts.length ? parts.join(i18n.t("ui.weaponCombo")) : i18n.t("ui.weaponStandard");
   }
 
   function getBurstDamage() {
@@ -712,8 +768,8 @@
 
     const def = getStageDef(stage);
     const ui = currentTheme.ui;
-    showFloatingText(W / 2, H / 2 - 28, currentTheme.name, ui.floatingWave, 95);
-    showFloatingText(W / 2, H / 2 - 4, `第 ${stage} 关`, ui.floatingWave, 95);
+    showFloatingText(W / 2, H / 2 - 28, i18n.themeName(universeIndex), ui.floatingWave, 95);
+    showFloatingText(W / 2, H / 2 - 4, i18n.t("stage.label", { n: stage }), ui.floatingWave, 95);
     showFloatingText(W / 2, H / 2 + 20, def.name, ui.floatingBoss, 100);
     showFloatingText(W / 2, H / 2 + 44, def.tip, "#8ecdb0", 90);
     updateHUD();
@@ -773,13 +829,13 @@
       statMissilesEl.style.color = missileCharges > 0 ? "#ff6b35" : "#5a7a9a";
     }
     updateTouchBadges();
-    if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
+    if (universeLabelEl) universeLabelEl.textContent = i18n.themeName(universeIndex);
 
     const active = [];
-    if (buffs.power > 0) active.push(`🔥火力${Math.ceil(buffs.power / 60)}s${formatBuffStack("power")}`);
-    if (buffs.shield > 0) active.push(`🛡护盾${Math.ceil(buffs.shield / 60)}s${formatBuffStack("shield")}`);
-    if (buffs.speed > 0) active.push(`⚡加速${Math.ceil(buffs.speed / 60)}s${formatBuffStack("speed")}`);
-    if (buffs.laser > 0) active.push(`💜激光${Math.ceil(buffs.laser / 60)}s${formatBuffStack("laser")}`);
+    if (buffs.power > 0) active.push(`${i18n.t("buff.hudPower")}${Math.ceil(buffs.power / 60)}${i18n.t("buff.hudSec")}${formatBuffStack("power")}`);
+    if (buffs.shield > 0) active.push(`${i18n.t("buff.hudShield")}${Math.ceil(buffs.shield / 60)}${i18n.t("buff.hudSec")}${formatBuffStack("shield")}`);
+    if (buffs.speed > 0) active.push(`${i18n.t("buff.hudSpeed")}${Math.ceil(buffs.speed / 60)}${i18n.t("buff.hudSec")}${formatBuffStack("speed")}`);
+    if (buffs.laser > 0) active.push(`${i18n.t("buff.hudLaser")}${Math.ceil(buffs.laser / 60)}${i18n.t("buff.hudSec")}${formatBuffStack("laser")}`);
     if (buffEl) buffEl.textContent = active.length ? active.join(" ") : "—";
 
     if (statSpeed) {
@@ -794,25 +850,25 @@
     if (statFireRate) statFireRate.textContent = getFireRateText();
     if (statShield) {
       if (buffs.shield > 0) {
-        const layers = buffStacks.shield > 1 ? ` · ${buffStacks.shield} 层` : "";
-        statShield.textContent = `激活 (${Math.ceil(buffs.shield / 60)}s${layers})`;
+        const layers = buffStacks.shield > 1 ? i18n.t("ui.shieldLayers", { n: buffStacks.shield }) : "";
+        statShield.textContent = i18n.t("ui.shieldActive", { time: `${Math.ceil(buffs.shield / 60)}s`, layers });
         statShield.style.color = "#5dade2";
       } else {
-        statShield.textContent = "无";
+        statShield.textContent = i18n.t("ui.shieldNone");
         statShield.style.color = "#5a7a9a";
       }
     }
 
     if (buffListEl) {
       const buffDefs = [
-        { key: "power", name: "三连火力", color: "#ff4757", max: POWERUP_TYPES.power.duration },
-        { key: "shield", name: "能量护盾", color: "#3498db", max: POWERUP_TYPES.shield.duration },
-        { key: "speed", name: "推进加速", color: "#2ecc71", max: POWERUP_TYPES.speed.duration },
-        { key: "laser", name: "穿透激光", color: "#a855f7", max: POWERUP_TYPES.laser.duration },
+        { key: "power", color: "#ff4757", max: POWERUP_TYPES.power.duration },
+        { key: "shield", color: "#3498db", max: POWERUP_TYPES.shield.duration },
+        { key: "speed", color: "#2ecc71", max: POWERUP_TYPES.speed.duration },
+        { key: "laser", color: "#a855f7", max: POWERUP_TYPES.laser.duration },
       ];
       const activeBuffs = buffDefs.filter((b) => buffs[b.key] > 0);
       if (activeBuffs.length === 0) {
-        buffListEl.innerHTML = '<p class="buff-empty">暂无</p>';
+        buffListEl.innerHTML = `<p class="buff-empty">${i18n.t("ui.buffEmpty")}</p>`;
       } else {
         buffListEl.innerHTML = activeBuffs.map((b) => {
           const remain = buffs[b.key];
@@ -820,9 +876,9 @@
           const secs = Math.ceil(remain / 60);
           const stack = formatBuffStack(b.key);
           return `<div class="buff-card" style="--buff-color:${b.color}">
-            <div class="buff-card-name">${b.name}${stack}</div>
+            <div class="buff-card-name">${i18n.buffLabel(b.key)}${stack}</div>
             <div class="buff-card-bar"><div class="buff-card-bar-fill" style="width:${pct}%"></div></div>
-            <div class="buff-card-time">剩余 ${secs} 秒</div>
+            <div class="buff-card-time">${i18n.t("ui.buffRemain", { n: secs })}</div>
           </div>`;
         }).join("");
       }
@@ -864,7 +920,7 @@
 
   function spawnPowerUp(x, y, forcedType) {
     const type = forcedType || pickRandomPowerUpType();
-    const cfg = POWERUP_TYPES[type];
+    const cfg = getPU(type);
     powerUps.push({
       type, x, y, width: 36, height: 44,
       speed: 1.2, wobble: Math.random() * Math.PI * 2,
@@ -907,7 +963,7 @@
       noRotate: cfg.noRotate || false,
       patrolDrift: cfg.patrolDrift || false,
       easterEgg: cfg.easterEgg || false,
-      codename: cfg.codename || null,
+      codename: (cfg.easterEgg || cfg.codename) ? i18n.entity(type) : null,
       score: cfg.score, color: cfg.color, accent: cfg.accent,
       pattern: cfg.pattern, angle: 0,
       shootTimer: cfg.shootInterval || 0,
@@ -916,7 +972,7 @@
       zigzagPhase: Math.random() * Math.PI * 2,
       isBoss,
       bossTier: MEGA_BOSS_TYPES[type] ? "mega" : isBoss ? "mini" : null,
-      bossName: cfg.name || null,
+      bossName: isBoss ? i18n.entity(type) : null,
       bulletSpeed: cfg.bulletSpeed || 3,
       ...overrides,
     };
@@ -969,12 +1025,12 @@
       killGoal: 3,
       pattern: "rebel_scout",
       color: "#b8c0c8", accent: "#e63946",
-      codename: "同盟侦察机",
-      hint: "击落追击机，掩护撤离",
+      codename: i18n.entity("rebel_scout"),
+      hint: i18n.t("rebel.hint"),
     };
     flybys.push(flyby);
     spawnRebelPursuers(flyby);
-    showFloatingText(W / 2, 72, "同盟侦察机遭追击！开火掩护其突围", "#74c0fc", 100);
+    showFloatingText(W / 2, 72, i18n.t("rebel.pursued"), "#74c0fc", 100);
   }
 
   function addScore(pts) {
@@ -987,13 +1043,13 @@
     addScore(888);
     audio.playAllySuccess();
     spawnPowerUp(flyby.x, flyby.y, Math.random() < 0.5 ? "shield" : "power");
-    showFloatingText(flyby.x, flyby.y - 20, "掩护成功！原力与你同在", "#74c0fc", 110);
-    showEasterEggToast("同盟侦察机安全撤离 — 追击机已清除。");
+    showFloatingText(flyby.x, flyby.y - 20, i18n.t("rebel.success"), "#74c0fc", 110);
+    showEasterEggToast(i18n.t("rebel.successToast"));
     clearRebelPursuers();
   }
 
   function failRebelMission(flyby) {
-    showFloatingText(flyby.x - 20, flyby.y, "掩护不足，侦察机强行撤离", "#7a9ab8", 85);
+    showFloatingText(flyby.x - 20, flyby.y, i18n.t("rebel.fail"), "#7a9ab8", 85);
     clearRebelPursuers();
   }
 
@@ -1005,8 +1061,7 @@
     boss.entering = true;
     enemies.push(boss);
     audio.playBoss();
-    const label = boss.bossTier === "mega" ? "大 Boss" : "关底 Boss";
-    showFloatingText(W / 2, 80, `⚠ ${cfg.name} ${label}来袭!`, currentTheme.ui.floatingBoss, 120);
+    showFloatingText(W / 2, 80, i18n.bossIncoming(i18n.entity(bossType), boss.bossTier), currentTheme.ui.floatingBoss, 120);
     updateHUD();
   }
 
@@ -1041,7 +1096,7 @@
       }
       if (stageVictoryDelay < 0) {
         stageVictoryDelay = 0;
-        showFloatingText(W / 2, H * 0.36, "战场肃清 — 战利品已收入囊中", "#ffd700", 95);
+        showFloatingText(W / 2, H * 0.36, i18n.floatMsg("battlefieldClear"), "#ffd700", 95);
       }
       stageVictoryDelay++;
       if (stageVictoryDelay < STAGE_VICTORY_PAUSE_FRAMES) return;
@@ -1061,16 +1116,15 @@
     clearRebelPursuers();
 
     const def = getStageDef(stage);
-    if (clearedStageEl) clearedStageEl.textContent = stage;
-    if (clearedStageNameEl) clearedStageNameEl.textContent = def.name;
+    if (stageClearLineEl) stageClearLineEl.textContent = i18n.t("ui.stageClearLine", { n: stage, name: def.name });
     if (stageClearScoreEl) stageClearScoreEl.textContent = stageScore;
     if (stageClearTotalEl) stageClearTotalEl.textContent = totalScore;
     const nextDef = getStageDef(stage + 1);
-    if (nextStageNameEl) nextStageNameEl.textContent = nextDef.name;
+    if (nextStageLineEl) nextStageLineEl.textContent = i18n.t("ui.nextStage", { name: nextDef.name });
 
     if (stage % 3 === 0 && lives < MAX_LIVES) {
       lives++;
-      showEasterEggToast(`连续突破 ${stage} 关！备用战机 +1（当前 ${lives} 命）`);
+      showEasterEggToast(i18n.t("easter.stageLifeBonus", { n: stage, lives }));
     }
     updateHUD();
 
@@ -1100,9 +1154,9 @@
   function showUniverseJump(def) {
     gameState = "universeJump";
     const nextTheme = themes.getTheme((def.universeIndex + 1) % themes.UNIVERSE_THEMES.length);
-    if (jumpBossNameEl) jumpBossNameEl.textContent = def.endBossName;
-    if (jumpFromUniverseEl) jumpFromUniverseEl.textContent = currentTheme.name;
-    if (jumpToUniverseEl) jumpToUniverseEl.textContent = nextTheme.name;
+    if (universeJumpBossLineEl) universeJumpBossLineEl.textContent = i18n.t("ui.universeJumpBoss", { boss: def.endBossName });
+    if (jumpFromUniverseEl) jumpFromUniverseEl.textContent = i18n.themeName(def.universeIndex);
+    if (jumpToUniverseEl) jumpToUniverseEl.textContent = i18n.themeName((def.universeIndex + 1) % themes.UNIVERSE_THEMES.length);
     showOverlay(universeJumpOverlay);
     if (universeJumpOverlay) universeJumpOverlay.classList.add("is-animating");
     clearTimeout(universeJumpTimer);
@@ -1128,11 +1182,11 @@
         speed: 1.8,
         escortTime: 0,
         escortGoal: 120,
-        name: "补给运输机",
-        hint: "靠近护航 2 秒",
+        name: i18n.allyName("escort"),
+        hint: i18n.allyHint("escort"),
         color: "#27ae60", accent: "#82e0aa",
       });
-      showFloatingText(W / 2, 100, "友军运输机请求护航!", "#82e0aa", 100);
+      showFloatingText(W / 2, 100, i18n.t("ally.escortCall"), "#82e0aa", 100);
     } else if (roll < 0.72) {
       allies.push({
         kind: "rescue",
@@ -1143,11 +1197,11 @@
         killCount: 0, killGoal: 8,
         timer: 900,
         spawnProtection: 120,
-        name: "受损僚机",
-        hint: "击落 8 架敌机救援",
+        name: i18n.allyName("rescue"),
+        hint: i18n.allyHint("rescue"),
         color: "#5dade2", accent: "#aed6f1",
       });
-      showFloatingText(W / 2, 100, "友军僚机正在求救!", "#5dade2", 100);
+      showFloatingText(W / 2, 100, i18n.t("ally.rescueCall"), "#5dade2", 100);
     } else {
       allies.push({
         kind: "medical",
@@ -1157,11 +1211,11 @@
         speed: 1.4,
         escortTime: 0,
         escortGoal: 120,
-        name: "医疗救援舰",
-        hint: "护航医疗舰获耐久补给",
+        name: i18n.allyName("medical"),
+        hint: i18n.allyHint("medical"),
         color: "#ffffff", accent: "#ff6b9d",
       });
-      showFloatingText(W / 2, 100, "医疗救援舰抵达! 护航可获得耐久补给", "#ff6b9d", 110);
+      showFloatingText(W / 2, 100, i18n.t("ally.medicalCall"), "#ff6b9d", 110);
     }
   }
 
@@ -1171,18 +1225,18 @@
 
     if (ally.kind === "medical") {
       if (trySpawnHealthDrop(ally.x, ally.y + 20)) {
-        showFloatingText(ally.x, ally.y, "医疗补给投放!", "#ff6b9d", 90);
+        showFloatingText(ally.x, ally.y, i18n.t("ally.medicalDrop"), "#ff6b9d", 90);
       } else if (canOfferHealth() === false && playerHp >= PLAYER_MAX_HP) {
-        showFloatingText(ally.x, ally.y, "耐久已满，改投护盾", "#3498db", 80);
+        showFloatingText(ally.x, ally.y, i18n.t("ally.hpFullShield"), "#3498db", 80);
         spawnPowerUp(ally.x, ally.y + 20, "shield");
       } else {
-        showFloatingText(ally.x, ally.y, "补给冷却中，改投护盾", "#3498db", 80);
+        showFloatingText(ally.x, ally.y, i18n.t("ally.cooldownShield"), "#3498db", 80);
         spawnPowerUp(ally.x, ally.y + 20, "shield");
       }
       return;
     }
 
-    showFloatingText(ally.x, ally.y, "任务完成! 道具投放", "#ffd700", 90);
+    showFloatingText(ally.x, ally.y, i18n.t("ally.complete"), "#ffd700", 90);
     if (canOfferLife() && Math.random() < 0.06) {
       trySpawnLifeDrop(ally.x + 10, ally.y + 20);
     } else if (canOfferHealth() && Math.random() < 0.18) {
@@ -1196,11 +1250,17 @@
 
   function failAllyMission(ally) {
     audio.playAllyFail();
-    showFloatingText(ally.x, ally.y, "友军任务失败", "#e74c3c", 70);
+    showFloatingText(ally.x, ally.y, i18n.t("ally.fail"), "#e74c3c", 70);
   }
 
-  function showPickupToast(cfg) {
-    pickupToast = { text: `获得【${cfg.fullName}】— ${cfg.desc}`, color: cfg.color, life: 150, maxLife: 150 };
+  function showPickupToast(cfg, powerKey) {
+    pickupToast = {
+      text: i18n.floatMsg("pickupToast", { name: cfg.fullName, desc: cfg.desc }),
+      color: cfg.color,
+      life: 150,
+      maxLife: 150,
+      powerKey,
+    };
   }
 
   function pickMissileTarget() {
@@ -1290,11 +1350,11 @@
   function deployMine() {
     if (gameState !== "playing" || respawnAnim) return;
     if (bombCharges <= 0) {
-      showFloatingText(player.x, player.y - 40, "无炸药储备", "#7a9ab8", 50);
+      showFloatingText(player.x, player.y - 40, i18n.floatMsg("noBombs"), "#7a9ab8", 50);
       return;
     }
     if (deployedMines.length >= MAX_DEPLOYED_MINES) {
-      showFloatingText(player.x, player.y - 40, `地雷已达上限 (${MAX_DEPLOYED_MINES})`, "#7a9ab8", 50);
+      showFloatingText(player.x, player.y - 40, i18n.floatMsg("mineCap", { max: MAX_DEPLOYED_MINES }), "#7a9ab8", 50);
       return;
     }
     const boss = enemies.find((e) => e.isBoss);
@@ -1312,19 +1372,19 @@
       pulse: Math.random() * Math.PI * 2,
     });
     audio.playShoot();
-    showFloatingText(player.x, player.y - 48, `地雷布设 · 储备 ${bombCharges}`, "#f39c12", 55);
+    showFloatingText(player.x, player.y - 48, i18n.floatMsg("mineDeploy", { n: bombCharges }), "#f39c12", 55);
     updateHUD();
   }
 
   function fireMissileSalvo() {
     if (gameState !== "playing" || respawnAnim) return;
     if (missileCharges <= 0) {
-      showFloatingText(player.x, player.y - 40, "无导弹储备", "#7a9ab8", 50);
+      showFloatingText(player.x, player.y - 40, i18n.floatMsg("noMissiles"), "#7a9ab8", 50);
       return;
     }
     missileCharges--;
     launchHomingMissiles(3);
-    showFloatingText(player.x, player.y - 48, `导弹齐射 · 储备 ${missileCharges}`, "#ff6b35", 55);
+    showFloatingText(player.x, player.y - 48, i18n.floatMsg("missileSalvo", { n: missileCharges }), "#ff6b35", 55);
     updateHUD();
   }
 
@@ -1334,14 +1394,14 @@
     if (enemy) {
       if (enemy.isBoss) {
         enemy.hp -= MINE_BOSS_DAMAGE;
-        showFloatingText(mine.x, mine.y - 12, `地雷命中! -${MINE_BOSS_DAMAGE}`, "#ffd700", 55);
+        showFloatingText(mine.x, mine.y - 12, i18n.floatMsg("mineHit", { dmg: MINE_BOSS_DAMAGE }), "#ffd700", 55);
         if (enemy.hp <= 0) killEnemy(enemy);
       } else {
         enemy.hp = 0;
         killEnemy(enemy);
       }
     } else {
-      showFloatingText(mine.x, mine.y, "地雷引爆", "#f39c12", 40);
+      showFloatingText(mine.x, mine.y, i18n.floatMsg("mineDetonate"), "#f39c12", 40);
     }
   }
 
@@ -1364,42 +1424,42 @@
   }
 
   function applyPowerUp(type) {
-    const cfg = POWERUP_TYPES[type];
+    const cfg = getPU(type);
     audio.playPickup();
-    showPickupToast(cfg);
+    showPickupToast(cfg, type);
     showFloatingText(player.x, player.y - 50, cfg.fullName, cfg.color, 70);
 
     switch (type) {
-      case "power": applyTimedBuff("power", cfg.duration); break;
-      case "shield": applyTimedBuff("shield", cfg.duration); break;
-      case "speed": applyTimedBuff("speed", cfg.duration); break;
+      case "power": applyTimedBuff("power", POWERUP_TYPES.power.duration); break;
+      case "shield": applyTimedBuff("shield", POWERUP_TYPES.shield.duration); break;
+      case "speed": applyTimedBuff("speed", POWERUP_TYPES.speed.duration); break;
       case "bomb":
         bombCharges++;
-        showFloatingText(player.x, player.y - 48, `炸药储备 +1（共 ${bombCharges}）· 按 B 布设地雷`, cfg.color, 75);
+        showFloatingText(player.x, player.y - 48, i18n.floatMsg("bombPickup", { n: bombCharges }), cfg.color, 75);
         break;
       case "health":
         if (playerHp < PLAYER_MAX_HP) {
           playerHp++;
           lastHealthFrame = frame;
           spawnParticles(player.x, player.y, "#ff6b9d", 15);
-          showFloatingText(player.x, player.y - 40, `耐久 +1 (${playerHp}/${PLAYER_MAX_HP})`, "#ff6b9d", 60);
+          showFloatingText(player.x, player.y - 40, i18n.floatMsg("hpGain", { hp: playerHp, max: PLAYER_MAX_HP }), "#ff6b9d", 60);
         } else {
-          showFloatingText(player.x, player.y - 40, "耐久已满", "#7a9ab8", 50);
+          showFloatingText(player.x, player.y - 40, i18n.floatMsg("hpFull"), "#7a9ab8", 50);
         }
         break;
       case "life":
         if (lives < MAX_LIVES) {
           lives++;
           spawnParticles(player.x, player.y, "#fcd34d", 18);
-          showFloatingText(player.x, player.y - 40, `备用战机 +1（当前 ${lives} 命）`, "#fbbf24", 70);
+          showFloatingText(player.x, player.y - 40, i18n.floatMsg("lifeGain", { lives }), "#fbbf24", 70);
         } else {
-          showFloatingText(player.x, player.y - 40, "战机编队已满", "#7a9ab8", 50);
+          showFloatingText(player.x, player.y - 40, i18n.floatMsg("lifeFull"), "#7a9ab8", 50);
         }
         break;
-      case "laser": applyTimedBuff("laser", cfg.duration); break;
+      case "laser": applyTimedBuff("laser", POWERUP_TYPES.laser.duration); break;
       case "missile":
         missileCharges++;
-        showFloatingText(player.x, player.y - 48, `导弹储备 +1（共 ${missileCharges}）· 按 V 齐射`, cfg.color, 75);
+        showFloatingText(player.x, player.y - 48, i18n.floatMsg("missilePickup", { n: missileCharges }), cfg.color, 75);
         break;
     }
     updateHUD();
@@ -1562,7 +1622,7 @@
     spawnParticles(player.x, player.y, "#ff6b6b", 28);
     audio.playExplode();
     if (lives <= 0) {
-      showFloatingText(player.x, player.y - 40, "战机坠毁 · 无备用机", "#ff6b6b", 90);
+      showFloatingText(player.x, player.y - 40, i18n.floatMsg("crashNoSpare"), "#ff6b6b", 90);
       updateHUD();
       endGame();
       return;
@@ -1581,7 +1641,7 @@
     playerTrail = [];
     enemyBullets = [];
     invincibleUntil = frame + 180;
-    showFloatingText(W / 2, H * 0.42, `备用战机接入 · 剩余 ${lives} 命`, "#fcd34d", 100);
+    showFloatingText(W / 2, H * 0.42, i18n.floatMsg("spareSwap", { lives }), "#fcd34d", 100);
     updateHUD();
   }
 
@@ -1841,13 +1901,13 @@
     if (enemy.easterEgg) {
       if (Math.random() < EASTER_EGG_QUOTE_CHANCE) {
         const msg = enemy.type === "dark_interceptor"
-          ? "黑暗先锋舰坠落 — 这不是你父亲的双翼战机…"
-          : "帝国巡逻机清除 — 听起来像有人在远处喊「我是你父亲」？";
+          ? i18n.floatMsg("eggDarkVanguard")
+          : i18n.floatMsg("eggTiePatrol");
         showFloatingText(enemy.x, enemy.y - 16, msg, enemy.accent, 100);
       }
       if (enemy.type === "dark_interceptor") spawnPowerUp(enemy.x, enemy.y);
     } else if (enemy.isBoss) {
-      showFloatingText(enemy.x, enemy.y, `${enemy.bossName} 击破! +${enemy.score}`, "#ffd700", 90);
+      showFloatingText(enemy.x, enemy.y, i18n.bossDefeated(enemy.bossName, enemy.score), "#ffd700", 90);
       if (canOfferHealth() && Math.random() < HEALTH_BOSS_CHANCE) {
         trySpawnHealthDrop(enemy.x - 20, enemy.y);
       }
@@ -1878,9 +1938,9 @@
       spawnParticles(player.x, player.y, "#3498db", 18);
       if (buffStacks.shield <= 0) {
         buffs.shield = 0;
-        showFloatingText(player.x, player.y - 30, "护盾破碎!", "#3498db", 50);
+        showFloatingText(player.x, player.y - 30, i18n.floatMsg("shieldBreak"), "#3498db", 50);
       } else {
-        showFloatingText(player.x, player.y - 30, `护盾抵挡! 剩余 ${buffStacks.shield} 层`, "#3498db", 55);
+        showFloatingText(player.x, player.y - 30, i18n.floatMsg("shieldBlock", { n: buffStacks.shield }), "#3498db", 55);
       }
       audio.playHit(); updateHUD(); return true;
     }
@@ -1891,7 +1951,7 @@
     if (playerHp <= 0) {
       swapPlane();
     } else {
-      showFloatingText(player.x, player.y - 40, `机体受损 · 剩余 ${playerHp} 点耐久`, "#ffd93d", 75);
+      showFloatingText(player.x, player.y - 40, i18n.floatMsg("damage", { hp: playerHp }), "#ffd93d", 75);
       updateHUD();
     }
     return true;
@@ -1965,23 +2025,23 @@
       const remain = enemies.filter(isStageEnemy).length;
       if (boss) {
         ratio = boss.hp / boss.maxHp;
-        label = `第 ${stage} 关 · 击败 ${def.endBossName}`;
+        label = i18n.stageBarLabel("barBoss", { n: stage, boss: def.endBossName });
       } else if (remain > 0) {
         ratio = 1;
-        label = `第 ${stage} 关 · 清剿残敌 · 剩余 ${remain}`;
+        label = i18n.stageBarLabel("barMopup", { n: stage, remain });
       } else if (powerUps.length > 0) {
         ratio = 1;
-        label = `第 ${stage} 关 · 拾取 Boss 战利品 · 剩余 ${powerUps.length}`;
+        label = i18n.stageBarLabel("barLoot", { n: stage, count: powerUps.length });
       } else if (stageVictoryDelay >= 0) {
         ratio = Math.min(1, stageVictoryDelay / STAGE_VICTORY_PAUSE_FRAMES);
-        label = `第 ${stage} 关 · 关卡完成`;
+        label = i18n.stageBarLabel("barComplete", { n: stage });
       } else {
         ratio = 1;
-        label = `第 ${stage} 关 · 战场已肃清`;
+        label = i18n.stageBarLabel("barCleared", { n: stage });
       }
     } else {
       ratio = Math.min(1, stageKills / def.goalKills);
-      label = `第 ${stage} 关 · ${def.name} · 清剿敌潮`;
+      label = i18n.stageBarLabel("barAssault", { n: stage, name: def.name });
     }
 
     ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -1995,7 +2055,7 @@
     ctx.strokeRect(x, y, barW, 6);
 
     ctx.fillStyle = "rgba(200,220,240,0.55)";
-    ctx.font = "9px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(9, "normal");
     ctx.textAlign = "left";
     ctx.fillText(label, x, y - 4);
   }
@@ -2056,11 +2116,11 @@
     }
 
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 9px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(9);
     ctx.textAlign = "center";
     ctx.fillText(ally.name, 0, -hh - 14);
     ctx.fillStyle = "#a8e6cf";
-    ctx.font = "8px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(8, "normal");
     ctx.fillText(ally.hint, 0, -hh - 4);
 
     const ratio = (ally.kind === "escort" || ally.kind === "medical")
@@ -2090,18 +2150,18 @@
     ctx.stroke();
 
     ctx.fillStyle = "#74c0fc";
-    ctx.font = "8px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(8, "normal");
     ctx.textAlign = "center";
     ctx.fillText(flyby.codename, 0, -flyby.height / 2 - 8);
     ctx.fillStyle = "#a8d8ff";
-    ctx.font = "7px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(7, "normal");
     ctx.fillText(flyby.hint, 0, -flyby.height / 2 + 2);
 
     const ratio = flyby.killCount / flyby.killGoal;
     sprites.drawHpBar(ctx, 0, flyby.height / 2 + 6, flyby.width + 8, Math.min(1, ratio), "#74c0fc");
     ctx.fillStyle = "#d0e8ff";
-    ctx.font = "7px Microsoft YaHei, sans-serif";
-    ctx.fillText(`追击机 ${flyby.killCount}/${flyby.killGoal}`, 0, flyby.height / 2 + 18);
+    ctx.font = gameFont(7, "normal");
+    ctx.fillText(i18n.t("rebel.pursuerLabel", { count: flyby.killCount, goal: flyby.killGoal }), 0, flyby.height / 2 + 18);
     ctx.restore();
   }
 
@@ -2111,15 +2171,15 @@
       ctx.save();
       ctx.translate(e.x, e.y - e.height / 2 - 10);
       ctx.fillStyle = "#ff6b6b";
-      ctx.font = "7px Microsoft YaHei, sans-serif";
+      ctx.font = gameFont(7, "normal");
       ctx.textAlign = "center";
-      ctx.fillText("帝国追击", 0, 0);
+      ctx.fillText(i18n.entity("imperial_pursuer"), 0, 0);
       ctx.restore();
     } else if (e.codename && !e.isBoss) {
       ctx.save();
       ctx.translate(e.x, e.y - e.height / 2 - 12);
       ctx.fillStyle = e.accent;
-      ctx.font = "8px Microsoft YaHei, sans-serif";
+      ctx.font = gameFont(8, "normal");
       ctx.textAlign = "center";
       ctx.fillText(e.codename, 0, 0);
       ctx.restore();
@@ -2176,7 +2236,7 @@
         ctx.lineWidth = 1.2;
         ctx.stroke();
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 9px Microsoft YaHei,sans-serif";
+        ctx.font = gameFont(9);
         ctx.textAlign = "center";
         ctx.fillText("+", 0, 3);
         break;
@@ -2222,12 +2282,12 @@
     drawPowerUpIcon(p.icon, p.color);
 
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(10);
     ctx.textAlign = "center";
     ctx.fillText(p.fullName, 0, 20);
 
     ctx.fillStyle = p.color;
-    ctx.font = "8px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(8, "normal");
     ctx.fillText(p.shortDesc, 0, 30);
 
     ctx.restore();
@@ -2315,7 +2375,7 @@
   }
 
   function drawFloatingTexts() {
-    floatingTexts.forEach((t) => { ctx.globalAlpha = t.life / t.maxLife; ctx.fillStyle = t.color; ctx.font = "bold 16px Microsoft YaHei, sans-serif"; ctx.textAlign = "center"; ctx.fillText(t.text, t.x, t.y); });
+    floatingTexts.forEach((t) => { ctx.globalAlpha = t.life / t.maxLife; ctx.fillStyle = t.color; ctx.font = gameFont(16); ctx.textAlign = "center"; ctx.fillText(t.text, t.x, t.y); });
     ctx.globalAlpha = 1;
   }
 
@@ -2359,7 +2419,7 @@
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = pickupToast.color;
-    ctx.font = "bold 12px Microsoft YaHei, sans-serif";
+    ctx.font = gameFont(12);
     ctx.textAlign = "center";
     ctx.fillText(pickupToast.text, W / 2, y + 4);
     ctx.globalAlpha = 1;
@@ -2374,7 +2434,7 @@
     grad.addColorStop(0, boss.color); grad.addColorStop(1, boss.accent);
     ctx.fillStyle = grad; ctx.fillRect(x, y, barW * ratio, 10);
     ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.strokeRect(x, y, barW, 10);
-    ctx.fillStyle = "#fff"; ctx.font = "11px Microsoft YaHei, sans-serif"; ctx.textAlign = "center"; ctx.fillText(boss.bossName, W / 2, y + 9);
+    ctx.fillStyle = "#fff"; ctx.font = gameFont(11, "normal"); ctx.textAlign = "center"; ctx.fillText(boss.bossName, W / 2, y + 9);
   }
 
   function render() {
@@ -2423,13 +2483,9 @@
   const gameTitleEl = document.getElementById("gameTitle");
   const subtitleSecretEl = document.getElementById("subtitleSecret");
   const hudSecretEl = document.getElementById("hudSecret");
-  const manualEasterEggEl = document.getElementById("manualEasterEgg");
 
-  const CHEAT_PHRASES = {
-    maytheforce: "原力与你同在 — 暗影刺客，愿星辰指引你的刀刃。",
-    darkside: "我感觉到一股杀气……以及一点光剑电池的味道。",
-    omega7: "Ω-7 任务档案：深入敌巢，迅如流星，静如深空。",
-  };
+
+
 
   let easterEggToastTimer = null;
 
@@ -2445,10 +2501,10 @@
 
   function tryCheatCode() {
     const key = cheatBuffer.slice(-12);
-    for (const [code, message] of Object.entries(CHEAT_PHRASES)) {
+    for (const code of CHEAT_CODES) {
       if (key.endsWith(code)) {
         cheatBuffer = "";
-        showEasterEggToast(message);
+        showEasterEggToast(i18n.cheatMessage(code));
         if (gameState === "playing" && Math.random() < 0.35) spawnRebelFlyby(true);
         return true;
       }
@@ -2457,12 +2513,7 @@
   }
 
   function rollSubtitleSecret() {
-    const pool = [
-      "这不是你正在寻找的战机……但它确实很快。",
-      "愿原力与你同在 — 至少在这一局里。",
-      "帝国巡逻报告：目标过小，雷达难以锁定。",
-      "有人说过：相信原力，也相信你的操作。",
-    ];
+    const pool = i18n.easterPool();
     showEasterEggToast(pool[Math.floor(Math.random() * pool.length)]);
   }
 
@@ -2540,7 +2591,7 @@
     gameState = "gameover";
     audio.stopBgm();
     if (finalScoreEl) finalScoreEl.textContent = totalScore;
-    if (reachedStageEl) reachedStageEl.textContent = stage;
+    if (reachedStageLineEl) reachedStageLineEl.textContent = i18n.t("ui.reachedStage", { n: stage });
     showOverlay(gameOverOverlay);
   }
 
@@ -2589,7 +2640,7 @@
     if (e.key === "Escape" && gameState === "manual") closeManual();
     if (e.key === "m" || e.key === "M") {
       const muted = audio.toggleMute();
-      if (muteBtn) muteBtn.textContent = muted ? "🔇" : "🔊";
+      if (muteBtn) muteBtn.textContent = muted ? i18n.t("ui.muteOn") : i18n.t("ui.muteOff");
     }
     if ((e.key === "b" || e.key === "B") && gameState === "playing") {
       e.preventDefault();
@@ -2657,7 +2708,7 @@
   if (muteBtn) muteBtn.addEventListener("click", () => {
     audio.resume();
     const muted = audio.toggleMute();
-    muteBtn.textContent = muted ? "🔇" : "🔊";
+    muteBtn.textContent = muted ? i18n.t("ui.muteOn") : i18n.t("ui.muteOff");
   });
 
   if (bombBtn) bombBtn.addEventListener("click", (e) => {
@@ -2710,7 +2761,7 @@
       titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 900);
       if (titleClickCount >= 3) {
         titleClickCount = 0;
-        showEasterEggToast("任务代号 Ω-7 已解锁：暗影刺客，直插敌巢。");
+        showEasterEggToast(i18n.t("easter.titleUnlock"));
       }
     });
   }
@@ -2718,7 +2769,7 @@
   if (subtitleSecretEl) {
     subtitleSecretEl.addEventListener("click", () => {
       if (Math.random() < 0.22) rollSubtitleSecret();
-      else showEasterEggToast("深空寂静。再试一次？");
+      else showEasterEggToast(i18n.t("easter.subtitleRetry"));
     });
   }
 
@@ -2726,22 +2777,28 @@
     hudSecretEl.addEventListener("click", () => {
       if (gameState === "playing") {
         if (Math.random() < 0.4) spawnRebelFlyby(true);
-        else showEasterEggToast("雷达捕捉到微弱友军信号…");
+        else showEasterEggToast(i18n.t("easter.hudSignal"));
       } else {
-        showEasterEggToast("战斗中才能呼叫不明信号。");
+        showEasterEggToast(i18n.t("easter.hudCombatOnly"));
       }
     });
   }
 
-  if (manualEasterEggEl) {
-    manualEasterEggEl.addEventListener("click", () => {
-      showEasterEggToast("档案备注：同盟侦察机遭追击时，击落伴随的帝国追击机即可掩护其撤离。友军自带 IFF，子弹会穿透。");
-    });
+  function setLanguage(lang) {
+    i18n.setLang(lang);
+    refreshI18n();
   }
+
+  const langZhBtn = document.getElementById("langZhBtn");
+  const langEnBtn = document.getElementById("langEnBtn");
+  if (langZhBtn) langZhBtn.addEventListener("click", () => setLanguage("zh"));
+  if (langEnBtn) langEnBtn.addEventListener("click", () => setLanguage("en"));
 
   isMobileUI = detectMobileUI();
   applyPerfTier();
   applyMobileUIMode();
+
+  refreshI18n();
 
   showOverlay(overlay);
   applyUniverseTheme(0);
