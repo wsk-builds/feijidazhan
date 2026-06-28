@@ -357,31 +357,64 @@
     enemies.push(createEnemy(pickEnemyType()));
   }
 
+  function spawnRebelPursuers(flyby) {
+    for (let i = 0; i < flyby.killGoal; i++) {
+      const pursuer = createEnemy(
+        "scout",
+        flyby.x + 55 + i * 28,
+        flyby.y + (i - 1) * 22,
+      );
+      pursuer.rebelPursuer = true;
+      pursuer.speed = 0.7;
+      pursuer.score = 0;
+      enemies.push(pursuer);
+    }
+  }
+
+  function clearRebelPursuers() {
+    enemies = enemies.filter((e) => !e.rebelPursuer);
+  }
+
+  function registerRebelPursuerKill() {
+    flybys.forEach((flyby) => {
+      if (flyby.killCount < flyby.killGoal) flyby.killCount++;
+    });
+  }
+
   function spawnRebelFlyby(forced) {
     if (flybys.length > 0) return;
     if (!forced && (gameState !== "playing" || enemies.some((e) => e.isBoss))) return;
-    flybys.push({
+    const flyby = {
       kind: "rebel_scout",
       x: -45,
       y: 90 + Math.random() * (H * 0.45),
       width: 34, height: 30,
       speed: 0.95,
-      escortTime: 0,
-      escortGoal: 90,
+      killCount: 0,
+      killGoal: 3,
       pattern: "rebel_scout",
       color: "#b8c0c8", accent: "#e63946",
       codename: "同盟侦察机",
-    });
-    showFloatingText(W / 2, 72, "⚡ 不明友方信号穿越战区…", "#74c0fc", 90);
+      hint: "击落追击机，掩护撤离",
+    };
+    flybys.push(flyby);
+    spawnRebelPursuers(flyby);
+    showFloatingText(W / 2, 72, "同盟侦察机遭追击！开火掩护其突围", "#74c0fc", 100);
     nextFlybyAt = score + 3500 + Math.random() * 3000;
   }
 
-  function completeRebelEscort(flyby) {
+  function completeRebelMission(flyby) {
     score += 888;
     audio.playAllySuccess();
     spawnPowerUp(flyby.x, flyby.y, Math.random() < 0.5 ? "shield" : "power");
-    showFloatingText(flyby.x, flyby.y - 20, "同盟侦察机：原力与你同在", "#74c0fc", 110);
-    showEasterEggToast("同盟侦察机护航成功 — 愿原力与你同在。");
+    showFloatingText(flyby.x, flyby.y - 20, "掩护成功！原力与你同在", "#74c0fc", 110);
+    showEasterEggToast("同盟侦察机安全撤离 — 追击机已清除。");
+    clearRebelPursuers();
+  }
+
+  function failRebelMission(flyby) {
+    showFloatingText(flyby.x - 20, flyby.y, "掩护不足，侦察机强行撤离", "#7a9ab8", 85);
+    clearRebelPursuers();
   }
 
   function spawnBoss() {
@@ -494,6 +527,7 @@
         enemies.filter((e) => !e.isBoss).forEach((e) => {
           spawnParticles(e.x, e.y, e.color, 8);
           score += e.score;
+          if (e.rebelPursuer) registerRebelPursuerKill();
         });
         enemies = enemies.filter((e) => e.isBoss);
         enemyBullets = [];
@@ -679,7 +713,14 @@
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       e.angle = Math.atan2(dy, dx);
 
-      if (e.patrolDrift) {
+      if (e.rebelPursuer && flybys.length > 0) {
+        const target = flybys[0];
+        const pdx = target.x - e.x;
+        const pdy = target.y - e.y;
+        const pd = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
+        e.x += (pdx / pd) * e.speed * 0.5;
+        e.y += (pdy / pd) * e.speed * 0.38;
+      } else if (e.patrolDrift) {
         e.y += e.speed;
         e.x += Math.sin(frame * 0.025 + e.zigzagPhase) * 0.45;
         e.x = Math.max(e.width / 2, Math.min(W - e.width / 2, e.x));
@@ -722,14 +763,12 @@
 
     flybys = flybys.filter((flyby) => {
       flyby.x += flyby.speed;
-      const pc = getPlayerCollider();
-      if (dist(pc, flyby) < 72) flyby.escortTime++;
-      if (flyby.escortTime >= flyby.escortGoal) {
-        completeRebelEscort(flyby);
+      if (flyby.killCount >= flyby.killGoal) {
+        completeRebelMission(flyby);
         return false;
       }
       if (flyby.x > W + 60) {
-        showFloatingText(flyby.x - 30, flyby.y, "同盟侦察机已撤离", "#7a9ab8", 70);
+        if (flyby.killCount < flyby.killGoal) failRebelMission(flyby);
         return false;
       }
       return true;
@@ -780,6 +819,8 @@
       if (ally.kind === "rescue" && ally.killCount < ally.killGoal) ally.killCount++;
     });
 
+    if (enemy.rebelPursuer) registerRebelPursuerKill();
+
     if (enemy.easterEgg) {
       const msg = enemy.type === "dark_interceptor"
         ? "黑暗先锋舰坠落 — 这不是你父亲的双翼战机…"
@@ -822,14 +863,6 @@
     const hitEnemies = new Set();
     bullets = bullets.filter((bullet) => {
       let consumed = false;
-      for (const flyby of flybys) {
-        if (rectOverlap(bullet, flyby)) {
-          showFloatingText(flyby.x, flyby.y, "友方战机！不要误伤！", "#74c0fc", 60);
-          consumed = true;
-          break;
-        }
-      }
-      if (consumed) return false;
       for (const enemy of enemies) {
         if (hitEnemies.has(enemy)) continue;
         if (rectOverlap(bullet, enemy)) {
@@ -958,20 +991,40 @@
     sprites.drawEnemy(ctx, flyby, frame);
     ctx.save();
     ctx.translate(flyby.x, flyby.y);
+
+    ctx.strokeStyle = `rgba(116,192,252,${0.35 + Math.sin(frame * 0.1) * 0.15})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, flyby.width * 0.65, flyby.height * 0.55, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
     ctx.fillStyle = "#74c0fc";
     ctx.font = "8px Microsoft YaHei, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(flyby.codename, 0, -flyby.height / 2 - 8);
-    if (dist(getPlayerCollider(), flyby) < 72) {
-      const ratio = flyby.escortTime / flyby.escortGoal;
-      sprites.drawHpBar(ctx, 0, flyby.height / 2 + 6, flyby.width, Math.min(1, ratio), "#74c0fc");
-    }
+    ctx.fillStyle = "#a8d8ff";
+    ctx.font = "7px Microsoft YaHei, sans-serif";
+    ctx.fillText(flyby.hint, 0, -flyby.height / 2 + 2);
+
+    const ratio = flyby.killCount / flyby.killGoal;
+    sprites.drawHpBar(ctx, 0, flyby.height / 2 + 6, flyby.width + 8, Math.min(1, ratio), "#74c0fc");
+    ctx.fillStyle = "#d0e8ff";
+    ctx.font = "7px Microsoft YaHei, sans-serif";
+    ctx.fillText(`追击机 ${flyby.killCount}/${flyby.killGoal}`, 0, flyby.height / 2 + 18);
     ctx.restore();
   }
 
   function drawEnemy(e) {
     sprites.drawEnemy(ctx, e, frame);
-    if (e.codename && !e.isBoss) {
+    if (e.rebelPursuer) {
+      ctx.save();
+      ctx.translate(e.x, e.y - e.height / 2 - 10);
+      ctx.fillStyle = "#ff6b6b";
+      ctx.font = "7px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("帝国追击", 0, 0);
+      ctx.restore();
+    } else if (e.codename && !e.isBoss) {
       ctx.save();
       ctx.translate(e.x, e.y - e.height / 2 - 12);
       ctx.fillStyle = e.accent;
@@ -1339,7 +1392,7 @@
 
   if (manualEasterEggEl) {
     manualEasterEggEl.addEventListener("click", () => {
-      showEasterEggToast("档案备注：帝国双翼巡逻机与黑暗先锋舰偶尔会闯入战区。同盟侦察机误入时，请护航，勿开火。");
+      showEasterEggToast("档案备注：同盟侦察机遭追击时，击落伴随的帝国追击机即可掩护其撤离。友军自带 IFF，子弹会穿透。");
     });
   }
 
