@@ -39,6 +39,7 @@ window.GameThemes = (function () {
         speed: { color: "#2ecc71", bgColor: "#0a2a18", borderColor: "#58d68d" },
         bomb: { color: "#f39c12", bgColor: "#3a2200", borderColor: "#f5b041" },
         laser: { color: "#a855f7", bgColor: "#1a0830", borderColor: "#c084fc" },
+        missile: { color: "#ff6b35", bgColor: "#3a1500", borderColor: "#ff8c42" },
         health: { color: "#ff6b9d", bgColor: "#3a1028", borderColor: "#ff85b3" },
       },
       ui: {
@@ -87,6 +88,7 @@ window.GameThemes = (function () {
         speed: { color: "#eab308", bgColor: "#422006", borderColor: "#facc15" },
         bomb: { color: "#dc2626", bgColor: "#3b0a0a", borderColor: "#ef4444" },
         laser: { color: "#f59e0b", bgColor: "#451a03", borderColor: "#fbbf24" },
+        missile: { color: "#ea580c", bgColor: "#431407", borderColor: "#fb923c" },
         health: { color: "#fb7185", bgColor: "#4c0519", borderColor: "#fda4af" },
       },
       ui: {
@@ -135,6 +137,7 @@ window.GameThemes = (function () {
         speed: { color: "#84cc16", bgColor: "#1a2e05", borderColor: "#a3e635" },
         bomb: { color: "#10b981", bgColor: "#064e3b", borderColor: "#34d399" },
         laser: { color: "#059669", bgColor: "#022c22", borderColor: "#6ee7b7" },
+        missile: { color: "#65a30d", bgColor: "#1a2e05", borderColor: "#a3e635" },
         health: { color: "#4ade80", bgColor: "#052e16", borderColor: "#86efac" },
       },
       ui: {
@@ -183,6 +186,7 @@ window.GameThemes = (function () {
         speed: { color: "#a855f7", bgColor: "#2e1065", borderColor: "#c084fc" },
         bomb: { color: "#d946ef", bgColor: "#4a044e", borderColor: "#e879f9" },
         laser: { color: "#8b5cf6", bgColor: "#1e1b4b", borderColor: "#a78bfa" },
+        missile: { color: "#f472b6", bgColor: "#500724", borderColor: "#fb7185" },
         health: { color: "#f472b6", bgColor: "#831843", borderColor: "#fbcfe8" },
       },
       ui: {

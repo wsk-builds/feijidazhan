@@ -78,6 +78,7 @@
   let lastHealthFrame = -99999;
   let bombCharges = 0;
   let deployedMines = [];
+  let playerMissiles = [];
 
   const PLAYER_MAX_HP = 4;
   const MAX_LIVES = 5;
@@ -226,6 +227,12 @@
       color: "#a855f7", bgColor: "#1a0830", borderColor: "#c084fc",
       icon: "laser", duration: 480, weight: 2,
     },
+    missile: {
+      label: "导弹", fullName: "追踪导弹", shortDesc: "3 枚齐射",
+      desc: "立即发射 3 枚追踪导弹，优先锁定 Boss",
+      color: "#ff6b35", bgColor: "#3a1500", borderColor: "#ff8c42",
+      icon: "missile", duration: 0, weight: 1,
+    },
   };
 
   const BOSS_DROP_CHANCE = 0.65;
@@ -280,8 +287,8 @@
       name: "乱流峡谷", goalKills: 14, spawnRate: 76,
       enemyPool: [{ type: "scout", weight: 0.55 }, { type: "interceptor", weight: 0.45 }],
       dropChance: 0.09,
-      powerupPool: ["power", "shield", "speed", "bomb"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 1 },
+      powerupPool: ["power", "shield", "speed", "bomb", "missile"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, bomb: 1, missile: 1 },
       allyMission: false, rebelFlyby: false,
       tip: "拦截机加入战场，注意走位",
     },
@@ -298,8 +305,8 @@
       name: "炮艇封锁线", goalKills: 18, spawnRate: 68,
       enemyPool: [{ type: "interceptor", weight: 0.3 }, { type: "gunship", weight: 0.7 }],
       dropChance: 0.08,
-      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
-      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 1 },
+      powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
+      powerupWeights: { power: 3, shield: 3, speed: 1, laser: 2, bomb: 1, missile: 1 },
       allyMission: false, rebelFlyby: false,
       tip: "炮艇会开火，优先击毁",
     },
@@ -325,8 +332,8 @@
       name: "母舰外围", goalKills: 22, spawnRate: 60,
       enemyPool: [{ type: "gunship", weight: 0.35 }, { type: "carrier", weight: 0.65 }],
       dropChance: 0.07,
-      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
+      powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2, missile: 1 },
       allyMission: false, rebelFlyby: false,
       tip: "母舰编队压境，达标后关底 Boss 登场",
     },
@@ -334,8 +341,8 @@
       name: "陨石风暴带", goalKills: 24, spawnRate: 56,
       enemyPool: [{ type: "meteor", weight: 0.5 }, { type: "wraith", weight: 0.5 }],
       dropChance: 0.065,
-      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
-      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 2 },
+      powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
+      powerupWeights: { power: 2, shield: 3, speed: 2, laser: 2, bomb: 2, missile: 1 },
       allyMission: true, rebelFlyby: false,
       tip: "重型陨石舰横冲直撞",
     },
@@ -343,8 +350,8 @@
       name: "雷暴核心", goalKills: 18, spawnRate: 58,
       enemyPool: [{ type: "carrier", weight: 0.4 }, { type: "gunship", weight: 0.6 }],
       dropChance: 0.08,
-      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
-      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 2 },
+      powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
+      powerupWeights: { power: 3, shield: 3, speed: 2, laser: 2, bomb: 2, missile: 2 },
       allyMission: false, rebelFlyby: true,
       tip: "雷暴走廊，弹幕密集",
     },
@@ -385,8 +392,8 @@
       spawnRate: Math.max(42, 58 - tier * 2),
       enemyPool: pool,
       dropChance: Math.max(0.05, 0.07 - tier * 0.002),
-      powerupPool: ["power", "shield", "speed", "laser", "bomb"],
-      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2 },
+      powerupPool: ["power", "shield", "speed", "laser", "bomb", "missile"],
+      powerupWeights: { power: 3, shield: 2, speed: 2, laser: 2, bomb: 2, missile: 1 },
       allyMission: tier % 2 === 0,
       rebelFlyby: tier % 3 === 1,
       tip: "无尽深空，难度持续攀升",
@@ -487,6 +494,7 @@
     powerUps = []; particles = []; floatingTexts = [];
     allies = []; flybys = [];
     deployedMines = [];
+    playerMissiles = [];
     mouseTarget = null; mouseMarker = null;
     pickupToast = null;
   }
@@ -998,6 +1006,91 @@
     pickupToast = { text: `获得【${cfg.fullName}】— ${cfg.desc}`, color: cfg.color, life: 150, maxLife: 150 };
   }
 
+  function pickMissileTarget() {
+    const boss = enemies.find((e) => e.isBoss);
+    if (boss) return boss;
+    let nearest = null;
+    let nearestDist = Infinity;
+    for (const enemy of enemies) {
+      if (enemy.rebelPursuer) continue;
+      const d = dist(player, enemy);
+      if (d < nearestDist) { nearestDist = d; nearest = enemy; }
+    }
+    return nearest;
+  }
+
+  function launchHomingMissiles(count) {
+    for (let i = 0; i < count; i++) {
+      const spread = (i - (count - 1) / 2) * 18;
+      playerMissiles.push({
+        x: player.x + spread,
+        y: player.y - 28,
+        width: 10,
+        height: 18,
+        speed: 7.5,
+        damage: 3,
+        vx: 0,
+        vy: -2,
+        delay: i * 10,
+        target: null,
+        color: "#ff6b35",
+        trail: [],
+      });
+    }
+    showFloatingText(player.x, player.y - 56, "追踪导弹发射!", "#ff6b35", 70);
+  }
+
+  function updateMissiles() {
+    const missileKills = new Set();
+    playerMissiles = playerMissiles.filter((m) => {
+      if (m.delay > 0) { m.delay--; return true; }
+
+      if (!m.target || m.target.hp <= 0 || !enemies.includes(m.target)) {
+        m.target = pickMissileTarget();
+      }
+
+      if (m.target) {
+        const dx = m.target.x - m.x;
+        const dy = m.target.y - m.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const desiredVx = (dx / d) * m.speed;
+        const desiredVy = (dy / d) * m.speed;
+        m.vx += (desiredVx - m.vx) * 0.14;
+        m.vy += (desiredVy - m.vy) * 0.14;
+        const spd = Math.sqrt(m.vx * m.vx + m.vy * m.vy) || 1;
+        const cap = m.speed;
+        m.vx = (m.vx / spd) * cap;
+        m.vy = (m.vy / spd) * cap;
+      } else {
+        m.vy -= 0.15;
+        m.vx *= 0.96;
+      }
+
+      m.x += m.vx;
+      m.y += m.vy;
+      m.trail.unshift({ x: m.x, y: m.y });
+      if (m.trail.length > 6) m.trail.pop();
+
+      for (const enemy of enemies) {
+        if (missileKills.has(enemy)) continue;
+        if (rectOverlap(m, enemy)) {
+          enemy.hp -= m.damage;
+          spawnParticles(m.x, m.y, m.color, 10);
+          audio.playHit();
+          if (enemy.hp <= 0) {
+            missileKills.add(enemy);
+            killEnemy(enemy);
+          }
+          return false;
+        }
+      }
+      return m.y > -80 && m.y < H + 80 && m.x > -60 && m.x < W + 60;
+    });
+    if (missileKills.size > 0) {
+      enemies = enemies.filter((e) => !missileKills.has(e));
+    }
+  }
+
   function deployMine() {
     if (gameState !== "playing" || respawnAnim) return;
     if (bombCharges <= 0) {
@@ -1096,6 +1189,7 @@
         }
         break;
       case "laser": buffs.laser = Math.max(buffs.laser, cfg.duration); break;
+      case "missile": launchHomingMissiles(3); break;
     }
     updateHUD();
   }
@@ -1299,6 +1393,7 @@
     bullets = bullets.filter((b) => { b.y -= b.speed; if (b.angle) b.x += Math.sin(b.angle) * b.speed * 0.3; return b.y > -30; });
     enemyBullets = enemyBullets.filter((b) => { b.x += b.vx; b.y += b.vy; return b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20; });
     updateMines();
+    updateMissiles();
   }
 
   function tryStageEvents() {
@@ -1463,6 +1558,7 @@
       }
       if (Math.random() < BOSS_DROP_CHANCE) spawnPowerUp(enemy.x, enemy.y);
       if (Math.random() < BOSS_DROP_CHANCE * 0.4) spawnPowerUp(enemy.x + 25, enemy.y);
+      if (Math.random() < 0.28) spawnPowerUp(enemy.x - 20, enemy.y + 15, "missile");
     } else {
       if (playerHp === 1 && canOfferHealth() && Math.random() < HEALTH_CRITICAL_CHANCE) {
         trySpawnHealthDrop(enemy.x, enemy.y);
@@ -1773,6 +1869,26 @@
         ctx.textAlign = "center";
         ctx.fillText("+", 0, 3);
         break;
+      case "missile":
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(5, 8);
+        ctx.lineTo(0, 4);
+        ctx.lineTo(-5, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#ff4500";
+        ctx.beginPath();
+        ctx.moveTo(-6, 8);
+        ctx.lineTo(0, 14);
+        ctx.lineTo(6, 8);
+        ctx.closePath();
+        ctx.fill();
+        break;
     }
   }
 
@@ -1804,6 +1920,37 @@
     ctx.fillText(p.shortDesc, 0, 30);
 
     ctx.restore();
+  }
+
+  function drawMissiles() {
+    playerMissiles.forEach((m) => {
+      m.trail.forEach((t, i) => {
+        const a = (1 - i / m.trail.length) * 0.5;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = m.color;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 3 - i * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      const angle = Math.atan2(m.vy, m.vx) + Math.PI / 2;
+      ctx.rotate(angle);
+      ctx.shadowColor = m.color;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = m.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -9);
+      ctx.lineTo(4, 6);
+      ctx.lineTo(0, 3);
+      ctx.lineTo(-4, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(-1, -4, 2, 5);
+      ctx.restore();
+    });
   }
 
   function drawMines() {
@@ -1926,6 +2073,7 @@
     powerUps.forEach(drawPowerUp);
     enemies.forEach(drawEnemy);
     drawMines();
+    drawMissiles();
     drawBullets();
     drawPlayer();
     drawMouseMarker();
