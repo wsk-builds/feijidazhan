@@ -1050,12 +1050,20 @@ body.is-mobile-ui .stats-drawer-close {
   cursor: pointer;
 }
 
-/* ── Touch controls ── */
-.touch-controls {
-  position: absolute;
-  right: max(10px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+/* ── Touch controls (mobile only) ── */
+.touch-controls,
+.stats-drawer-toggle,
+.fullscreen-btn {
+  display: none;
+}
+
+body.is-mobile-ui .touch-controls {
   display: flex;
+  position: absolute;
+  top: 42%;
+  bottom: auto;
+  right: max(8px, env(safe-area-inset-right));
+  transform: translateY(-50%);
   flex-direction: column;
   gap: 10px;
   z-index: 5;
@@ -1120,13 +1128,17 @@ body.is-mobile-ui .stats-drawer-close {
   display: none;
 }
 
+body.is-mobile-ui .stats-drawer-toggle,
+body.is-mobile-ui .fullscreen-btn {
+  display: flex;
+}
+
 .stats-drawer-toggle,
 .fullscreen-btn {
   position: fixed;
   z-index: 25;
   width: 40px;
   height: 40px;
-  display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(100, 180, 255, 0.18);

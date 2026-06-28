@@ -347,10 +347,12 @@
   }
 
   function detectMobileUI() {
+    const fine = window.matchMedia("(pointer: fine)").matches;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const narrow = window.matchMedia("(max-width: 768px)").matches;
-    const touch = navigator.maxTouchPoints > 0;
-    return (coarse && narrow) || (touch && narrow && window.innerWidth < 900);
+    if (fine && !coarse) return false;
+    if (!narrow) return false;
+    return coarse;
   }
 
   function applyPerfTier() {
@@ -366,7 +368,12 @@
   }
 
   function updateMobileChrome() {
-    if (!isMobileUI) return;
+    if (!isMobileUI) {
+      if (touchControlsEl) touchControlsEl.hidden = true;
+      if (statsDrawerToggle) statsDrawerToggle.hidden = true;
+      if (fullscreenBtn) fullscreenBtn.hidden = true;
+      return;
+    }
     const inPlay = gameState === "playing";
     if (touchControlsEl) touchControlsEl.hidden = !inPlay;
     if (statsDrawerToggle) statsDrawerToggle.hidden = !inPlay;

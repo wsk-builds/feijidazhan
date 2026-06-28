@@ -1,9 +1,9 @@
-const { chromium, devices } = require("playwright");
+const { chromium } = require("playwright");
 const { spawn } = require("child_process");
 const http = require("http");
 const path = require("path");
 
-const PORT = 18081;
+const PORT = 18082;
 const ROOT = path.join(__dirname, "..");
 
 function waitForServer(port, timeout = 8000) {
@@ -33,8 +33,8 @@ function waitForServer(port, timeout = 8000) {
     await waitForServer(PORT);
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      ...devices["iPhone 13"],
-      viewport: { width: 375, height: 812 },
+      viewport: { width: 1280, height: 800 },
+      hasTouch: false,
     });
     const page = await context.newPage();
     const errors = [];
@@ -44,14 +44,15 @@ function waitForServer(port, timeout = 8000) {
 
     const boot = await page.evaluate(() => ({
       mobileClass: document.body.classList.contains("is-mobile-ui"),
-      manifest: !!document.querySelector('link[rel="manifest"]'),
-      touchControls: !!document.getElementById("touchControls"),
-      drawerToggle: !!document.getElementById("statsDrawerToggle"),
+      touchHidden: document.getElementById("touchControls")?.hidden,
+      drawerHidden: document.getElementById("statsDrawerToggle")?.hidden,
+      fullscreenHidden: document.getElementById("fullscreenBtn")?.hidden,
     }));
 
-    if (!boot.mobileClass) throw new Error("is-mobile-ui not applied at 375px");
-    if (!boot.manifest) throw new Error("manifest link missing");
-    if (!boot.touchControls || !boot.drawerToggle) throw new Error("mobile chrome missing");
+    if (boot.mobileClass) throw new Error("is-mobile-ui should not apply at 1280px desktop");
+    if (!boot.touchHidden) throw new Error("touch controls should be hidden on desktop");
+    if (!boot.drawerHidden) throw new Error("stats drawer toggle should be hidden on desktop");
+    if (!boot.fullscreenHidden) throw new Error("fullscreen btn should be hidden on desktop");
 
     await page.click("#startBtn");
     await page.waitForTimeout(900);
@@ -66,29 +67,21 @@ function waitForServer(port, timeout = 8000) {
 
     const playing = await page.evaluate(() => {
       const tc = document.getElementById("touchControls");
-      const canvas = document.getElementById("gameCanvas");
-      if (!tc || !canvas || tc.hidden) return null;
-      const tcBox = tc.getBoundingClientRect();
-      const canvasBox = canvas.getBoundingClientRect();
-      const centerY = tcBox.top + tcBox.height / 2;
-      const relY = (centerY - canvasBox.top) / canvasBox.height;
-      return { visible: true, relY };
+      const style = tc ? getComputedStyle(tc) : null;
+      return {
+        hidden: tc?.hidden,
+        display: style?.display,
+        mobileClass: document.body.classList.contains("is-mobile-ui"),
+      };
     });
-    if (!playing) throw new Error("touch controls not visible during play");
-    if (playing.relY < 0.28 || playing.relY > 0.58) {
-      throw new Error(`touch controls should be mid-right (relY ~0.42), got ${playing.relY.toFixed(2)}`);
-    }
 
-    const canvas = page.locator("#gameCanvas");
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error("canvas not laid out");
-
-    await page.touchscreen.tap(box.x + box.width * 0.5, box.y + box.height * 0.7);
-    await page.waitForTimeout(400);
+    if (playing.mobileClass) throw new Error("is-mobile-ui during play on desktop");
+    if (!playing.hidden) throw new Error("touch controls visible during play on desktop");
+    if (playing.display !== "none") throw new Error(`touch controls display should be none, got ${playing.display}`);
 
     if (errors.length) throw new Error("JS errors: " + errors.join("; "));
 
-    console.log("OK: mobile UI boot, tutorial, touch controls, canvas touch");
+    console.log("OK: desktop hides touch controls at 1280x800");
     await browser.close();
     process.exit(0);
   } catch (e) {
