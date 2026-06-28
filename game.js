@@ -605,6 +605,7 @@
     applyThemedEnemyColors();
     applyThemedPowerupColors();
     initBackground();
+    audio.setUniverse(universeIndex);
   }
 
   function resetBuffs() {
@@ -779,6 +780,8 @@
     showFloatingText(W / 2, H / 2 - 4, i18n.t("stage.label", { n: stage }), ui.floatingWave, 95);
     showFloatingText(W / 2, H / 2 + 20, def.name, ui.floatingBoss, 100);
     showFloatingText(W / 2, H / 2 + 44, def.tip, "#8ecdb0", 90);
+    audio.setBgmMode("normal");
+    audio.playStageStart();
     updateHUD();
   }
 
@@ -1067,7 +1070,7 @@
     if (!boss) return;
     boss.entering = true;
     enemies.push(boss);
-    audio.playBoss();
+    audio.playBoss(boss.bossTier === "mega");
     showFloatingText(W / 2, 80, i18n.bossIncoming(i18n.entity(bossType), boss.bossTier), currentTheme.ui.floatingBoss, 120);
     updateHUD();
   }
@@ -1087,6 +1090,7 @@
     if (stagePhase === "assault") {
       if (stageKills < def.goalKills) return;
       stagePhase = "clearing";
+      audio.playWaveRetreat();
       showFloatingText(W / 2, H * 0.36, i18n.floatMsg("waveRetreat"), currentTheme.ui.floatingWave, 95);
       return;
     }
@@ -1111,6 +1115,7 @@
       }
       if (stageVictoryDelay < 0) {
         stageVictoryDelay = 0;
+        audio.playBattlefieldClear();
         showFloatingText(W / 2, H * 0.36, i18n.floatMsg("battlefieldClear"), "#ffd700", 95);
       }
       stageVictoryDelay++;
@@ -1144,8 +1149,10 @@
     updateHUD();
 
     if (def.isMegaStage) {
+      audio.playUniverseJump();
       showUniverseJump(def);
     } else {
+      audio.playStageClear();
       gameState = "stageClear";
       showOverlay(stageClearOverlay);
     }
@@ -1161,6 +1168,7 @@
     const nextUni = themes.getUniverseIndex(stage + 1);
     applyUniverseTheme(nextUni);
     hideAllOverlays();
+    audio.setBgmMode("normal");
     startStage(stage + 1);
     gameState = "playing";
     audio.startBgm();
@@ -1180,6 +1188,7 @@
 
   function proceedToNextStage() {
     hideAllOverlays();
+    audio.setBgmMode("normal");
     startStage(stage + 1);
     gameState = "playing";
     audio.startBgm();
@@ -1440,7 +1449,7 @@
 
   function applyPowerUp(type) {
     const cfg = getPU(type);
-    audio.playPickup();
+    audio.playPickup(type);
     showPickupToast(cfg, type);
     showFloatingText(player.x, player.y - 50, cfg.fullName, cfg.color, 70);
 
@@ -1905,7 +1914,12 @@
     if (countsTowardStageGoal(enemy)) stageKills++;
 
     spawnParticles(enemy.x, enemy.y, enemy.color, enemy.isBoss ? 35 : 12);
-    audio.playExplode();
+    if (enemy.isBoss) {
+      audio.playExplode("large");
+      audio.playBossDefeat(enemy.bossTier === "mega");
+    } else {
+      audio.playExplode(enemy.maxHp > 2 ? "medium" : "small");
+    }
 
     allies.forEach((ally) => {
       if (ally.kind === "rescue" && ally.killCount < ally.killGoal) ally.killCount++;
@@ -2609,6 +2623,7 @@
   function endGame() {
     gameState = "gameover";
     audio.stopBgm();
+    audio.playGameOver();
     if (finalScoreEl) finalScoreEl.textContent = totalScore;
     if (reachedStageLineEl) reachedStageLineEl.textContent = i18n.t("ui.reachedStage", { n: stage });
     showOverlay(gameOverOverlay);
