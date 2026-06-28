@@ -83,6 +83,7 @@
   const HEALTH_COOLDOWN = 3600;
   const HEALTH_CRITICAL_CHANCE = 0.05;
   const HEALTH_BOSS_CHANCE = 0.35;
+  const ENEMY_BULLET_SPEED_SCALE = 0.72;
 
   const player = {
     x: W / 2, y: H - 80,
@@ -113,7 +114,7 @@
   const ENEMY_TYPES = {
     scout: { width: 34, height: 30, hp: 1, speed: 0.8, score: 100, color: "#e74c3c", accent: "#ff6b6b", pattern: "scout" },
     interceptor: { width: 26, height: 36, hp: 1, speed: 1.4, score: 200, color: "#f39c12", accent: "#ffd93d", pattern: "interceptor" },
-    gunship: { width: 44, height: 38, hp: 3, speed: 0.5, score: 450, color: "#9b59b6", accent: "#d4a5ff", pattern: "gunship", shootInterval: 100 },
+    gunship: { width: 44, height: 38, hp: 3, speed: 0.5, score: 450, color: "#9b59b6", accent: "#d4a5ff", pattern: "gunship", shootInterval: 100, bulletSpeed: 2.2 },
     phantom: { width: 30, height: 34, hp: 2, speed: 0.9, score: 300, color: "#3498db", accent: "#74c0fc", pattern: "phantom", zigzag: true },
     carrier: { width: 52, height: 42, hp: 4, speed: 0.4, score: 600, color: "#2ecc71", accent: "#6ee7b7", pattern: "carrier" },
     wraith: { width: 32, height: 34, hp: 2, speed: 1.0, score: 350, color: "#6c1d8a", accent: "#d946ef", pattern: "wraith", zigzag: true },
@@ -121,19 +122,19 @@
     tie_patrol: {
       width: 28, height: 28, hp: 1, speed: 1.1, score: 777,
       color: "#141414", accent: "#9aa0a6", pattern: "tie_patrol",
-      shootInterval: 120, bulletSpeed: 2.4, noRotate: true, patrolDrift: true,
+      shootInterval: 120, bulletSpeed: 2.0, noRotate: true, patrolDrift: true,
       easterEgg: true, codename: "帝国巡逻机",
     },
     dark_interceptor: {
       width: 34, height: 30, hp: 4, speed: 0.58, score: 1980,
       color: "#0a0a0a", accent: "#d62828", pattern: "dark_interceptor",
-      shootInterval: 80, bulletSpeed: 2.6, noRotate: true, patrolDrift: true,
+      shootInterval: 80, bulletSpeed: 2.1, noRotate: true, patrolDrift: true,
       easterEgg: true, codename: "黑暗先锋舰",
     },
     ember_hunter: {
       width: 30, height: 28, hp: 2, speed: 1.0, score: 888,
       color: "#7c2d12", accent: "#fb923c", pattern: "ember_hunter",
-      shootInterval: 90, bulletSpeed: 2.5, noRotate: true, patrolDrift: true,
+      shootInterval: 90, bulletSpeed: 2.0, noRotate: true, patrolDrift: true,
       easterEgg: true, codename: "余烬猎手",
     },
     spore_scout: {
@@ -145,7 +146,7 @@
     holo_drone: {
       width: 26, height: 26, hp: 1, speed: 1.2, score: 777,
       color: "#312e81", accent: "#22d3ee", pattern: "holo_drone",
-      shootInterval: 100, bulletSpeed: 2.8, noRotate: true, patrolDrift: true,
+      shootInterval: 100, bulletSpeed: 2.1, noRotate: true, patrolDrift: true,
       easterEgg: true, codename: "全息无人机",
     },
   };
@@ -1080,7 +1081,8 @@
 
   function enemyShoot(enemy, speed, spread = 0) {
     const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x) + spread;
-    enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.height / 2, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, width: 8, height: 8, damage: 1, color: enemy.accent });
+    const spd = speed * ENEMY_BULLET_SPEED_SCALE;
+    enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.height / 2, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, width: 8, height: 8, damage: 1, color: enemy.accent });
   }
 
   function spawnParticles(x, y, color, count) {
