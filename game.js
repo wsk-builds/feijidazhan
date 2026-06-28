@@ -1085,7 +1085,15 @@
     const def = getStageDef(stage);
 
     if (stagePhase === "assault") {
-      if (stageKills < def.goalKills || stageBossSpawned) return;
+      if (stageKills < def.goalKills) return;
+      stagePhase = "clearing";
+      showFloatingText(W / 2, H * 0.36, i18n.floatMsg("waveRetreat"), currentTheme.ui.floatingWave, 95);
+      return;
+    }
+
+    if (stagePhase === "clearing") {
+      if (enemies.some(isBlockingEnemy)) return;
+      if (stageBossSpawned) return;
       stageBossSpawned = true;
       stagePhase = "boss";
       spawnEndBoss(def.endBossType);
@@ -2046,6 +2054,10 @@
         ratio = 1;
         label = i18n.stageBarLabel("barCleared", { n: stage });
       }
+    } else if (stagePhase === "clearing") {
+      const remain = enemies.filter(isBlockingEnemy).length;
+      ratio = remain > 0 ? 0.55 + 0.45 * Math.sin(frame * 0.1) : 1;
+      label = i18n.stageBarLabel("barClearing", { n: stage, remain });
     } else {
       ratio = Math.min(1, stageKills / def.goalKills);
       label = i18n.stageBarLabel("barAssault", { n: stage, name: def.name });

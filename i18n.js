@@ -729,6 +729,7 @@
         label: "第 {n} 关",
         endlessTip: "无尽深空，难度持续攀升",
         barAssault: "第 {n} 关 · {name} · 清剿敌潮",
+        barClearing: "第 {n} 关 · 清剿残敌… · 剩余 {remain}",
         barBoss: "第 {n} 关 · 击败 {boss}",
         barMopup: "第 {n} 关 · 清剿残敌 · 剩余 {remain}",
         barLoot: "第 {n} 关 · 拾取 Boss 战利品 · 剩余 {count}",
@@ -863,6 +864,7 @@
         defeated: "{name} 击破! +{score}",
       },
       float: {
+        waveRetreat: "敌潮已退 — 清剿残敌",
         battlefieldClear: "战场肃清 — 战利品已收入囊中",
         noBombs: "无炸药储备",
         mineCap: "地雷已达上限 ({max})",
@@ -995,6 +997,7 @@
         label: "Stage {n}",
         endlessTip: "Endless deep space — difficulty keeps climbing",
         barAssault: "Stage {n} · {name} · Clear the wave",
+        barClearing: "Stage {n} · Mop up stragglers… · {remain} left",
         barBoss: "Stage {n} · Defeat {boss}",
         barMopup: "Stage {n} · Mop up stragglers · {remain} left",
         barLoot: "Stage {n} · Collect boss loot · {count} left",
@@ -1129,6 +1132,7 @@
         defeated: "{name} destroyed! +{score}",
       },
       float: {
+        waveRetreat: "Wave broken — mop up stragglers",
         battlefieldClear: "Battlefield clear — loot secured",
         noBombs: "No bomb stock",
         mineCap: "Mine cap reached ({max})",
