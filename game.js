@@ -84,6 +84,7 @@
   const HEALTH_CRITICAL_CHANCE = 0.05;
   const HEALTH_BOSS_CHANCE = 0.35;
   const ENEMY_BULLET_SPEED_SCALE = 0.72;
+  const BOSS_ANCHOR_Y = H * 0.30;
 
   const player = {
     x: W / 2, y: H - 80,
@@ -1262,7 +1263,12 @@
     tryStageEvents();
 
     enemies.forEach((e) => {
-      if (e.entering) { e.y += 1.2; if (e.y >= 100) e.entering = false; return; }
+      if (e.entering) {
+        const enterY = e.isBoss ? BOSS_ANCHOR_Y : 100;
+        e.y += 1.2;
+        if (e.y >= enterY) { e.entering = false; e.y = enterY; }
+        return;
+      }
       const cfg = getBossConfig(e.type) || ENEMY_TYPES[e.type];
       const dx = player.x - e.x, dy = player.y - e.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1284,8 +1290,13 @@
         e.x += Math.sin(e.zigzagPhase) * 1.2;
         e.y += e.speed * 0.45;
       } else if (e.isBoss) {
+        if (e.y < BOSS_ANCHOR_Y) {
+          e.y += e.speed * 0.55;
+        } else {
+          e.y += Math.sin(frame * 0.022 + e.x * 0.012) * 0.32;
+          e.y = Math.max(BOSS_ANCHOR_Y - 20, Math.min(BOSS_ANCHOR_Y + 20, e.y));
+        }
         e.x += (dx / d) * e.speed * 0.35;
-        e.y += Math.min(e.speed * 0.85, (dy / d) * e.speed * 0.85);
         e.x = Math.max(e.width / 2, Math.min(W - e.width / 2, e.x));
       } else {
         e.y += e.speed * 0.88;
