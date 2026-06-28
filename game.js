@@ -491,14 +491,28 @@
     return `${perSec}/s`;
   }
 
-  function clearBattlefield() {
+  function clearBattlefield({ keepPowerUps = false } = {}) {
     bullets = []; enemyBullets = []; enemies = [];
-    powerUps = []; particles = []; floatingTexts = [];
+    if (!keepPowerUps) powerUps = [];
+    particles = []; floatingTexts = [];
     allies = []; flybys = [];
     deployedMines = [];
     playerMissiles = [];
     mouseTarget = null; mouseMarker = null;
     pickupToast = null;
+  }
+
+  function relocateCarriedPowerUps() {
+    if (powerUps.length === 0) return;
+    const cols = Math.min(powerUps.length, 4);
+    const startX = W / 2 - ((cols - 1) * 44) / 2;
+    powerUps.forEach((p, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      p.x = startX + col * 44;
+      p.y = 52 + row * 30;
+      p.wobble = Math.random() * Math.PI * 2;
+    });
   }
 
   function resetPlayerPosition() {
@@ -537,13 +551,12 @@
     stageBossSpawned = false;
     stageAllySpawned = false;
     stageRebelSpawned = false;
-    bombCharges = 0;
     invincibleUntil = frame + 90;
     playerHp = PLAYER_MAX_HP;
     const uni = themes.getUniverseIndex(n);
     if (uni !== universeIndex) applyUniverseTheme(uni);
-    clearBattlefield();
-    resetBuffs();
+    clearBattlefield({ keepPowerUps: true });
+    relocateCarriedPowerUps();
     resetPlayerPosition();
 
     const def = getStageDef(stage);
