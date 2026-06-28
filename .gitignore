@@ -1,0 +1,8 @@
+# Local dev / IDE
+.DS_Store
+Thumbs.db
+*.log
+
+# Cursor / Grok harness (not game source)
+mcps/
+terminals/
