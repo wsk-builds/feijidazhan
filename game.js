@@ -57,7 +57,11 @@
     width: 28, height: 32,
     hitboxWidth: 18, hitboxHeight: 22,
     baseSpeed: 8.5, speed: 8.5, shootCooldown: 0,
+    prevX: W / 2, prevY: H - 80,
   };
+
+  let playerTrail = [];
+  const TRAIL_MAX = 14;
 
   const buffs = { power: 0, shield: 0, speed: 0, laser: 0 };
 
@@ -205,7 +209,10 @@
     nextAllyAt = 900; pickupToast = null;
     lastHealthFrame = -99999;
     mouseTarget = null; mouseMarker = null;
-    player.x = W / 2; player.y = H - 80; player.shootCooldown = 0;
+    player.x = W / 2; player.y = H - 80;
+    player.prevX = player.x; player.prevY = player.y;
+    player.shootCooldown = 0;
+    playerTrail = [];
     resetBuffs();
     bullets = []; enemyBullets = []; enemies = [];
     powerUps = []; particles = []; floatingTexts = []; allies = [];
@@ -628,6 +635,29 @@
     }
 
     clampPlayerPosition();
+
+    const mvx = player.x - player.prevX;
+    const mvy = player.y - player.prevY;
+    const moveSpeed = Math.hypot(mvx, mvy);
+    if (moveSpeed > 0.4) {
+      const intensity = Math.min(1, moveSpeed / (player.speed * 0.85));
+      const copies = moveSpeed > 4 ? 2 : 1;
+      for (let i = 0; i < copies; i++) {
+        playerTrail.unshift({
+          x: player.x, y: player.y,
+          vx: mvx, vy: mvy,
+          life: 0.55 + intensity * 0.45,
+          boost: buffs.speed > 0,
+        });
+      }
+    }
+    player.prevX = player.x;
+    player.prevY = player.y;
+    playerTrail = playerTrail
+      .map((t) => ({ ...t, life: t.life * (t.boost ? 0.86 : 0.9) }))
+      .filter((t) => t.life > 0.04)
+      .slice(0, TRAIL_MAX);
+
     if (mouseMarker) { mouseMarker.life--; if (mouseMarker.life <= 0) mouseMarker = null; }
     if (player.shootCooldown > 0) player.shootCooldown--;
     if (keys[" "] || keys["Space"] || frame % 15 === 0) shoot();
@@ -854,7 +884,12 @@
     if (cosmos) sprites.drawCosmos(ctx, cosmos, W, H, frame);
   }
 
+  function drawPlayerTrail() {
+    sprites.drawPlayerTrail(ctx, playerTrail, player.width, player.height, buffs, frame);
+  }
+
   function drawPlayer() {
+    drawPlayerTrail();
     sprites.drawPlayer(ctx, player.x, player.y, player.width, player.height, buffs, frame, invincibleUntil);
   }
 
@@ -1115,6 +1150,11 @@
   }
 
   function update() {
+    if (gameState === "transition") {
+      frame++;
+      updateBackground();
+      return;
+    }
     if (gameState !== "playing") return;
     frame++;
     updateBuffs();
@@ -1179,14 +1219,33 @@
     showEasterEggToast(pool[Math.floor(Math.random() * pool.length)]);
   }
 
-  function startGame() {
-    audio.resume();
+  function beginPlaying(withTransition) {
     audio.startBgm();
-    resetGame();
     gameState = "playing";
     overlay.classList.add("hidden");
+    overlay.classList.remove("is-exiting");
     gameOverOverlay.classList.add("hidden");
+    canvas.classList.remove("is-entering");
     if (statsPanel) statsPanel.classList.remove("is-hidden");
+  }
+
+  function startGame(fromRestart) {
+    if (gameState === "transition") return;
+    audio.resume();
+    resetGame();
+
+    if (fromRestart) {
+      beginPlaying(false);
+      return;
+    }
+
+    gameState = "transition";
+    overlay.classList.remove("hidden");
+    overlay.classList.add("is-exiting");
+    canvas.classList.add("is-entering");
+    if (statsPanel) statsPanel.classList.add("is-hidden");
+
+    setTimeout(() => beginPlaying(true), 680);
   }
 
   function endGame() {
@@ -1236,8 +1295,8 @@
 
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  startBtn.addEventListener("click", startGame);
-  restartBtn.addEventListener("click", startGame);
+  startBtn.addEventListener("click", () => startGame(false));
+  restartBtn.addEventListener("click", () => startGame(true));
   if (openManualBtn) openManualBtn.addEventListener("click", openManual);
   if (helpBtn) helpBtn.addEventListener("click", openManual);
   if (closeManualBtn) closeManualBtn.addEventListener("click", closeManual);

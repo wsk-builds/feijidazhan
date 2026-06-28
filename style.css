@@ -9,7 +9,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 50% 20%, #1a2048 0%, #0a0a18 65%);
+  background:
+    radial-gradient(ellipse at 30% 15%, rgba(40, 60, 140, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(90, 40, 120, 0.2) 0%, transparent 50%),
+    linear-gradient(165deg, #02020a 0%, #0a0820 45%, #050510 100%);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   color: #e8f4ff;
   overflow: hidden;
@@ -310,9 +313,27 @@ body {
   display: block;
   border-radius: 10px;
   border: 1px solid rgba(100, 180, 255, 0.15);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  background: #010108;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(60, 100, 200, 0.08);
+  background: #000008;
   cursor: crosshair;
+  transform-origin: center center;
+}
+
+#gameCanvas.is-entering {
+  animation: canvas-enter 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes canvas-enter {
+  0% {
+    filter: brightness(0.3) saturate(0.75);
+    transform: scale(1.04);
+    opacity: 0.55;
+  }
+  100% {
+    filter: none;
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ── Overlays ── */
@@ -324,13 +345,32 @@ body {
   align-items: center;
   justify-content: center;
   background: rgba(4, 8, 20, 0.78);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
   border-radius: 10px;
   z-index: 10;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1),
+    backdrop-filter 0.65s ease,
+    visibility 0s linear 0s;
 }
 
 .overlay.hidden {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.4s ease,
+    backdrop-filter 0.4s ease,
+    visibility 0s linear 0.4s;
+}
+
+.overlay.is-exiting {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  pointer-events: none;
 }
 
 .panel {
@@ -340,6 +380,19 @@ body {
   border: 1px solid rgba(100, 180, 255, 0.15);
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    transform 0.68s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.55s ease,
+    filter 0.55s ease;
+}
+
+.overlay.is-exiting .panel {
+  transform: scale(0.9) translateY(18px);
+  opacity: 0;
+  filter: blur(6px);
 }
 
 .panel-start {

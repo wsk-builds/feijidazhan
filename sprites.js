@@ -4,193 +4,303 @@ window.GameSprites = (function () {
 
   function initCosmos(W, H) {
     const stars = [];
-    for (let layer = 0; layer < 4; layer++) {
-      const count = [120, 80, 45, 18][layer];
+    for (let layer = 0; layer < 5; layer++) {
+      const count = [200, 140, 70, 28, 10][layer];
       for (let i = 0; i < count; i++) {
+        const bright = Math.random();
         stars.push({
           x: Math.random() * W, y: Math.random() * H,
-          size: (0.4 + layer * 0.35) + Math.random() * 0.8,
-          speed: (0.2 + layer * 0.35) + Math.random() * 0.4,
-          brightness: Math.random(),
+          size: (0.25 + layer * 0.22) + Math.random() * (layer >= 3 ? 1.2 : 0.6),
+          speed: (0.12 + layer * 0.28) + Math.random() * 0.35,
+          brightness: bright,
           twinkle: Math.random() * Math.PI * 2,
+          twinkleSpeed: 0.02 + Math.random() * 0.05,
           layer,
-          tint: Math.random() < 0.15 ? (Math.random() < 0.5 ? "#a8d8ff" : "#ffd4a8") : "#ffffff",
+          flare: layer >= 4 && bright > 0.82,
+          tint: Math.random() < 0.22
+            ? (Math.random() < 0.55 ? "#9ecfff" : Math.random() < 0.5 ? "#c4b5fd" : "#fcd9b8")
+            : "#ffffff",
         });
       }
     }
 
     const nebulae = [];
-    const hues = [240, 270, 300, 200, 320, 260];
-    for (let i = 0; i < 8; i++) {
+    const hues = [220, 255, 285, 310, 195, 265, 330];
+    for (let i = 0; i < 10; i++) {
       nebulae.push({
         x: Math.random() * W, y: Math.random() * H,
-        radius: 90 + Math.random() * 120,
-        speed: 0.08 + Math.random() * 0.12,
+        radius: 110 + Math.random() * 150,
+        speed: 0.05 + Math.random() * 0.08,
         hue: hues[i % hues.length],
-        alpha: 0.06 + Math.random() * 0.08,
+        hue2: hues[(i + 2) % hues.length],
+        alpha: 0.05 + Math.random() * 0.07,
         rot: Math.random() * Math.PI * 2,
+        stretch: 0.45 + Math.random() * 0.35,
+      });
+    }
+
+    const auroras = [];
+    for (let i = 0; i < 3; i++) {
+      auroras.push({
+        x: Math.random() * W,
+        y: 40 + Math.random() * H * 0.35,
+        width: 120 + Math.random() * 180,
+        height: 200 + Math.random() * 260,
+        speed: 0.03 + Math.random() * 0.04,
+        hue: [200, 270, 320][i],
+        phase: Math.random() * Math.PI * 2,
+        alpha: 0.04 + Math.random() * 0.04,
       });
     }
 
     const galaxies = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       galaxies.push({
-        x: Math.random() * W, y: Math.random() * H * 0.6,
-        radius: 25 + Math.random() * 20,
-        speed: 0.04 + Math.random() * 0.03,
+        x: Math.random() * W, y: Math.random() * H * 0.55,
+        radius: 30 + Math.random() * 35,
+        speed: 0.025 + Math.random() * 0.025,
         rot: Math.random() * Math.PI * 2,
-        hue: [220, 280, 340][i],
+        hue: [215, 275, 330, 250][i],
+        tilt: (Math.random() - 0.5) * 0.8,
       });
     }
 
     const planets = [];
     for (let i = 0; i < 2; i++) {
       planets.push({
-        x: 80 + Math.random() * (W - 160),
-        y: 60 + Math.random() * 180,
-        radius: 18 + Math.random() * 28,
-        speed: 0.05 + Math.random() * 0.05,
-        hue: [200, 30][i],
+        x: 60 + Math.random() * (W - 120),
+        y: -40 - Math.random() * 120,
+        radius: 28 + Math.random() * 42,
+        speed: 0.035 + Math.random() * 0.03,
+        hue: [210, 25, 280][i],
         ring: i === 0,
+        glow: 0.12 + Math.random() * 0.1,
       });
     }
 
     const dust = [];
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 55; i++) {
       dust.push({
         x: Math.random() * W, y: Math.random() * H,
-        size: 1 + Math.random() * 2,
-        speed: 0.3 + Math.random() * 0.5,
-        alpha: 0.05 + Math.random() * 0.1,
+        size: 0.6 + Math.random() * 2.2,
+        speed: 0.22 + Math.random() * 0.45,
+        alpha: 0.03 + Math.random() * 0.08,
+        drift: (Math.random() - 0.5) * 0.15,
       });
     }
 
-    return { stars, nebulae, galaxies, planets, dust, shootingStars: [] };
+    const milkyBand = {
+      y: H * (0.15 + Math.random() * 0.25),
+      angle: -0.25 + Math.random() * 0.15,
+      alpha: 0.07 + Math.random() * 0.04,
+    };
+
+    return { stars, nebulae, auroras, galaxies, planets, dust, milkyBand, shootingStars: [], cosmicPulse: 0 };
   }
 
   function updateCosmos(cosmos, W, H, level, frame) {
+    cosmos.cosmicPulse = frame * 0.008;
     cosmos.stars.forEach((s) => {
-      s.y += s.speed + level * 0.08;
-      s.twinkle += 0.04;
-      if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+      s.y += s.speed + level * 0.06;
+      s.twinkle += s.twinkleSpeed;
+      if (s.y > H + 4) { s.y = -4; s.x = Math.random() * W; }
     });
     cosmos.nebulae.forEach((n) => {
-      n.y += n.speed;
-      n.rot += 0.0008;
+      n.y += n.speed + level * 0.015;
+      n.rot += 0.0005;
       if (n.y > H + n.radius) { n.y = -n.radius; n.x = Math.random() * W; }
     });
+    if (cosmos.auroras) {
+      cosmos.auroras.forEach((a) => {
+        a.y += a.speed;
+        a.phase += 0.012;
+        if (a.y > H + a.height) { a.y = -a.height; a.x = Math.random() * W; }
+      });
+    }
     cosmos.galaxies.forEach((g) => {
-      g.y += g.speed;
-      g.rot += 0.001;
-      if (g.y > H + 40) { g.y = -40; g.x = Math.random() * W; }
+      g.y += g.speed + level * 0.01;
+      g.rot += 0.0007;
+      if (g.y > H + 50) { g.y = -50; g.x = Math.random() * W; }
     });
     cosmos.planets.forEach((p) => {
       p.y += p.speed;
-      if (p.y > H + p.radius) { p.y = -p.radius; p.x = 80 + Math.random() * (W - 160); }
+      if (p.y > H + p.radius + 20) {
+        p.y = -p.radius - 40;
+        p.x = 60 + Math.random() * (W - 120);
+      }
     });
     cosmos.dust.forEach((d) => {
-      d.y += d.speed;
+      d.y += d.speed + level * 0.02;
+      d.x += d.drift;
       if (d.y > H) { d.y = 0; d.x = Math.random() * W; }
     });
 
-    if (frame % 400 === 0 && cosmos.shootingStars.length < 2) {
+    if (frame % 280 === 0 && cosmos.shootingStars.length < 3) {
       cosmos.shootingStars.push({
-        x: Math.random() * W, y: 0,
-        len: 40 + Math.random() * 60,
-        speed: 8 + Math.random() * 4,
-        life: 30 + Math.random() * 20,
+        x: Math.random() * W, y: Math.random() * H * 0.35,
+        len: 50 + Math.random() * 90,
+        speed: 10 + Math.random() * 6,
+        life: 24 + Math.random() * 18,
+        hue: Math.random() < 0.3 ? 200 : 0,
       });
     }
     cosmos.shootingStars = cosmos.shootingStars.filter((s) => {
-      s.x += s.speed * 0.6;
-      s.y += s.speed;
+      s.x += s.speed * 0.55;
+      s.y += s.speed * 0.85;
       s.life--;
       return s.life > 0;
     });
   }
 
+  function starColor(tint, alpha) {
+    if (tint === "#9ecfff") return `rgba(158,207,255,${alpha})`;
+    if (tint === "#c4b5fd") return `rgba(196,181,253,${alpha})`;
+    if (tint === "#fcd9b8") return `rgba(252,217,184,${alpha})`;
+    return `rgba(255,255,255,${alpha})`;
+  }
+
   function drawCosmos(ctx, cosmos, W, H, frame) {
-    const deep = ctx.createLinearGradient(0, 0, 0, H);
-    deep.addColorStop(0, "#010108");
-    deep.addColorStop(0.35, "#06061a");
-    deep.addColorStop(0.7, "#0c0824");
-    deep.addColorStop(1, "#140a2e");
+    const pulse = cosmos.cosmicPulse || 0;
+
+    const deep = ctx.createLinearGradient(0, 0, W, H);
+    deep.addColorStop(0, "#000008");
+    deep.addColorStop(0.25, "#05051a");
+    deep.addColorStop(0.55, "#0a0828");
+    deep.addColorStop(0.82, "#120a35");
+    deep.addColorStop(1, "#08051c");
     ctx.fillStyle = deep;
     ctx.fillRect(0, 0, W, H);
 
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
-    vignette.addColorStop(0, "rgba(20,10,50,0)");
-    vignette.addColorStop(1, "rgba(0,0,0,0.55)");
-    ctx.fillStyle = vignette;
+    const glow = ctx.createRadialGradient(W * 0.3, H * 0.15, 0, W * 0.5, H * 0.4, H * 0.9);
+    glow.addColorStop(0, `rgba(40,60,140,${0.18 + Math.sin(pulse) * 0.03})`);
+    glow.addColorStop(0.45, "rgba(80,40,120,0.08)");
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
 
-    cosmos.planets.forEach((p) => {
-      const g = ctx.createRadialGradient(p.x - p.radius * 0.3, p.y - p.radius * 0.3, 0, p.x, p.y, p.radius);
-      g.addColorStop(0, `hsla(${p.hue},50%,65%,0.5)`);
-      g.addColorStop(0.7, `hsla(${p.hue},40%,35%,0.35)`);
-      g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-      ctx.fill();
-      if (p.ring) {
-        ctx.strokeStyle = `hsla(${p.hue},40%,70%,0.2)`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(p.x, p.y, p.radius * 1.6, p.radius * 0.35, -0.4, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    });
-
-    cosmos.galaxies.forEach((g) => {
+    if (cosmos.milkyBand) {
+      const band = cosmos.milkyBand;
       ctx.save();
-      ctx.translate(g.x, g.y);
-      ctx.rotate(g.rot);
-      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, g.radius);
-      grad.addColorStop(0, `hsla(${g.hue},60%,80%,0.25)`);
-      grad.addColorStop(0.4, `hsla(${g.hue},50%,50%,0.12)`);
-      grad.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, g.radius * 1.4, g.radius * 0.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.translate(W / 2, band.y);
+      ctx.rotate(band.angle);
+      const mg = ctx.createLinearGradient(-W, 0, W, 0);
+      mg.addColorStop(0, "rgba(0,0,0,0)");
+      mg.addColorStop(0.35, `rgba(180,190,255,${band.alpha * 0.5})`);
+      mg.addColorStop(0.5, `rgba(220,210,255,${band.alpha})`);
+      mg.addColorStop(0.65, `rgba(160,170,240,${band.alpha * 0.6})`);
+      mg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = mg;
+      ctx.fillRect(-W, -18, W * 2, 36);
       ctx.restore();
-    });
+    }
+
+    if (cosmos.auroras) {
+      cosmos.auroras.forEach((a) => {
+        const wave = Math.sin(a.phase) * 0.35 + 0.65;
+        const g = ctx.createLinearGradient(a.x, a.y, a.x + a.width * 0.3, a.y + a.height);
+        g.addColorStop(0, `hsla(${a.hue},70%,65%,0)`);
+        g.addColorStop(0.35, `hsla(${a.hue},80%,70%,${a.alpha * wave})`);
+        g.addColorStop(0.7, `hsla(${a.hue + 40},70%,60%,${a.alpha * 0.5 * wave})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(a.x, a.y, a.width, a.height, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
 
     cosmos.nebulae.forEach((n) => {
       ctx.save();
       ctx.translate(n.x, n.y);
       ctx.rotate(n.rot);
       const g = ctx.createRadialGradient(0, 0, 0, 0, 0, n.radius);
-      g.addColorStop(0, `hsla(${n.hue},80%,60%,${n.alpha * 1.8})`);
-      g.addColorStop(0.45, `hsla(${n.hue + 30},70%,45%,${n.alpha})`);
+      g.addColorStop(0, `hsla(${n.hue},85%,72%,${n.alpha * 2.2})`);
+      g.addColorStop(0.35, `hsla(${n.hue2 || n.hue + 25},75%,55%,${n.alpha * 1.2})`);
+      g.addColorStop(0.7, `hsla(${n.hue},60%,35%,${n.alpha * 0.5})`);
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.ellipse(0, 0, n.radius, n.radius * 0.65, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, n.radius, n.radius * (n.stretch || 0.6), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.ellipse(n.radius * 0.15, 0, n.radius * 0.55, n.radius * 0.3, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.restore();
+    });
+
+    cosmos.galaxies.forEach((g) => {
+      ctx.save();
+      ctx.translate(g.x, g.y);
+      ctx.rotate(g.rot);
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, g.radius * 1.6);
+      grad.addColorStop(0, `hsla(${g.hue},70%,88%,0.32)`);
+      grad.addColorStop(0.25, `hsla(${g.hue},65%,65%,0.16)`);
+      grad.addColorStop(0.6, `hsla(${g.hue + 20},50%,40%,0.06)`);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, g.radius * 1.8, g.radius * 0.55, g.tilt || 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     });
 
+    cosmos.planets.forEach((p) => {
+      const glowR = p.radius * 2.2;
+      const outer = ctx.createRadialGradient(p.x, p.y, p.radius * 0.5, p.x, p.y, glowR);
+      outer.addColorStop(0, `hsla(${p.hue},60%,55%,${p.glow || 0.12})`);
+      outer.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = outer;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      const g = ctx.createRadialGradient(p.x - p.radius * 0.35, p.y - p.radius * 0.35, 0, p.x, p.y, p.radius);
+      g.addColorStop(0, `hsla(${p.hue},55%,78%,0.65)`);
+      g.addColorStop(0.55, `hsla(${p.hue},45%,42%,0.5)`);
+      g.addColorStop(1, `hsla(${p.hue},40%,18%,0.15)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.ring) {
+        ctx.strokeStyle = `hsla(${p.hue},50%,78%,0.22)`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.radius * 1.75, p.radius * 0.32, -0.45, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    });
+
     cosmos.dust.forEach((d) => {
-      ctx.fillStyle = `rgba(180,200,255,${d.alpha})`;
-      ctx.fillRect(d.x, d.y, d.size, d.size * 0.5);
+      ctx.fillStyle = `rgba(160,185,255,${d.alpha})`;
+      ctx.fillRect(d.x, d.y, d.size, d.size * 0.45);
     });
 
     cosmos.stars.forEach((s) => {
-      const tw = 0.5 + Math.sin(s.twinkle) * 0.5;
-      const alpha = (0.15 + s.brightness * 0.85) * tw * (s.layer === 3 ? 1.2 : s.layer === 2 ? 0.9 : 0.5);
-      ctx.fillStyle = s.tint === "#ffffff"
-        ? `rgba(255,255,255,${alpha})`
-        : s.tint === "#a8d8ff"
-          ? `rgba(168,216,255,${alpha})`
-          : `rgba(255,212,168,${alpha})`;
+      const tw = 0.55 + Math.sin(s.twinkle) * 0.45;
+      const depth = [0.35, 0.5, 0.7, 0.95, 1.15][s.layer] || 0.5;
+      const alpha = (0.12 + s.brightness * 0.88) * tw * depth;
+      ctx.fillStyle = starColor(s.tint, alpha);
       if (s.layer >= 2) {
         ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = s.layer === 3 ? 4 : 2;
+        ctx.shadowBlur = s.flare ? 8 : s.layer >= 4 ? 5 : 2;
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
         ctx.fill();
+        if (s.flare) {
+          ctx.strokeStyle = starColor(s.tint, alpha * 0.55);
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(s.x - s.size * 3, s.y);
+          ctx.lineTo(s.x + s.size * 3, s.y);
+          ctx.moveTo(s.x, s.y - s.size * 3);
+          ctx.lineTo(s.x, s.y + s.size * 3);
+          ctx.stroke();
+        }
         ctx.shadowBlur = 0;
       } else {
         ctx.fillRect(s.x, s.y, s.size, s.size);
@@ -198,16 +308,80 @@ window.GameSprites = (function () {
     });
 
     cosmos.shootingStars.forEach((s) => {
-      const a = s.life / 50;
-      const grad = ctx.createLinearGradient(s.x, s.y, s.x - s.len * 0.6, s.y - s.len);
-      grad.addColorStop(0, `rgba(255,255,255,${a})`);
+      const a = s.life / 42;
+      const c0 = s.hue ? `hsla(${s.hue},90%,85%,${a})` : `rgba(255,255,255,${a})`;
+      const grad = ctx.createLinearGradient(s.x, s.y, s.x - s.len * 0.65, s.y - s.len);
+      grad.addColorStop(0, c0);
+      grad.addColorStop(0.4, `rgba(180,210,255,${a * 0.5})`);
       grad.addColorStop(1, "rgba(255,255,255,0)");
       ctx.strokeStyle = grad;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = s.hue ? 2.5 : 1.8;
+      ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
-      ctx.lineTo(s.x - s.len * 0.6, s.y - s.len);
+      ctx.lineTo(s.x - s.len * 0.65, s.y - s.len);
       ctx.stroke();
+    });
+
+    const vignette = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.15, W / 2, H * 0.5, H * 0.95);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.62)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawPlayerTrail(ctx, trail, w, h, buffs, f) {
+    if (!trail.length) return;
+
+    const hasSpeed = buffs.speed > 0;
+    const hasLaser = buffs.laser > 0;
+    let accent = hasLaser ? "#a78bfa" : hasSpeed ? "#5eead4" : "#38bdf8";
+
+    trail.forEach((t, i) => {
+      const fade = t.life * (1 - i / trail.length);
+      const alpha = fade * 0.42;
+      if (alpha < 0.02) return;
+
+      const lag = (i + 1) * (hasSpeed ? 1.1 : 0.85);
+      const tx = t.x - t.vx * lag;
+      const ty = t.y - t.vy * lag;
+      const scale = 1 - i * 0.045;
+      const hw = w * 0.5 * scale;
+      const hh = h * 0.5 * scale;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(tx, ty);
+
+      if (i < 3 && fade > 0.25) {
+        const streak = ctx.createLinearGradient(0, 0, -t.vx * 3, -t.vy * 3);
+        streak.addColorStop(0, `rgba(56,189,248,${alpha * 0.9})`);
+        streak.addColorStop(1, "rgba(56,189,248,0)");
+        ctx.strokeStyle = streak;
+        ctx.lineWidth = (3 - i * 0.6) * (hasSpeed ? 1.3 : 1);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-t.vx * 2.8, -t.vy * 2.8);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(0, -hh);
+      ctx.lineTo(-hw * 0.35, hh * 0.1);
+      ctx.lineTo(0, hh * 0.85);
+      ctx.lineTo(hw * 0.35, hh * 0.1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.globalAlpha = alpha * 0.35;
+      ctx.fillStyle = "#e2e8f0";
+      ctx.beginPath();
+      ctx.ellipse(0, -hh * 0.2, hw * 0.18, hh * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
     });
   }
 
@@ -641,6 +815,7 @@ window.GameSprites = (function () {
     updateCosmos,
     drawCosmos,
     drawPlayer,
+    drawPlayerTrail,
     drawEnemy,
     drawHpBar,
   };
