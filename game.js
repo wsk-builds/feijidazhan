@@ -17,6 +17,7 @@
   const statHpEl = document.getElementById("statHp");
   const statLivesEl = document.getElementById("statLives");
   const levelEl = document.getElementById("level");
+  const bombChargesEl = document.getElementById("bombCharges");
 
   const universeJumpOverlay = document.getElementById("universeJumpOverlay");
   const jumpBossNameEl = document.getElementById("jumpBossName");
@@ -590,6 +591,10 @@
       statLivesEl.style.color = lives <= 1 ? "#ff6b6b" : lives <= 2 ? "#ffd93d" : "#e8f4ff";
     }
     if (levelEl) levelEl.textContent = stage;
+    if (bombChargesEl) {
+      bombChargesEl.textContent = bombCharges > 0 ? `💣×${bombCharges}` : "—";
+      bombChargesEl.style.color = bombCharges > 0 ? "#f39c12" : "rgba(140,190,230,0.45)";
+    }
     if (universeLabelEl) universeLabelEl.textContent = currentTheme.name;
 
     const active = [];

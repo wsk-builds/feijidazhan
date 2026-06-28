@@ -214,6 +214,12 @@ body[data-universe="3"] {
   font-variant-numeric: tabular-nums;
 }
 
+.hud-bombs .hud-bomb-value {
+  font-size: 14px !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .hud-item .label {
   font-size: 11px;
   color: rgba(140, 190, 230, 0.55);

@@ -33,6 +33,11 @@
               </div>
             </div>
             <div class="hud-divider"></div>
+            <div class="hud-item hud-bombs">
+              <span class="label">炸药</span>
+              <span id="bombCharges" class="hud-bomb-value">—</span>
+            </div>
+            <div class="hud-divider"></div>
             <div class="hud-item">
               <span class="label">关卡</span>
               <span id="level">1</span>
@@ -56,7 +61,7 @@
           <div class="panel panel-start">
             <h1 id="gameTitle">飞机大战</h1>
             <p class="subtitle">暗影刺客 · 直插<span id="subtitleSecret" class="subtitle-secret">敌方</span>要塞</p>
-            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动</p>
+            <p class="start-hint">关卡制战役 · 3 命换机 · 每机 4 点耐久 · WASD / 点击移动 · B 布设地雷</p>
             <button id="startBtn" class="btn btn-primary">开始游戏</button>
             <button id="openManualBtn" class="text-link" type="button">查看游戏说明</button>
           </div>
@@ -151,7 +156,7 @@
             <p>游戏采用<strong>关卡制</strong>，共 9 个精心设计的关卡，之后进入无尽深空模式。每关敌机种类、道具池、彩蛋与 Boss 各不相同，难度逐步攀升。</p>
             <ul>
               <li>每关目标：击毁指定数量敌机（进度条显示在画布底部）</li>
-              <li>部分关卡清剿完毕后出现 <strong>Boss</strong>，击败 Boss 方可过关</li>
+              <li>达标后出现 <strong>Boss</strong>（悬停屏幕中部）；击败 Boss 后须<strong>清剿场上全部残敌</strong>（含彩蛋机）方可过关</li>
               <li>你始终驾驶<strong>同一型号战机</strong>：每架有 <strong>4 点耐久</strong>（被击中 -1，护盾可挡一次）</li>
               <li><strong>1 命 = 1 架飞机</strong>；耐久归零后若有备用机，会播放换机过场并替换同款新机上阵</li>
               <li>初始 <strong>3 命</strong>，每 3 关奖励 +1 命（上限 5）；可拾取「备用战机」道具</li>
@@ -165,6 +170,7 @@
               <li><kbd>↑↓←→</kbd> 或 <kbd>WASD</kbd>：移动战机</li>
               <li><strong>鼠标点击</strong>画布：战机自动飞往目标位置（与键盘可切换）</li>
               <li><kbd>空格</kbd>：手动射击（游戏也会自动射击）</li>
+              <li><kbd>B</kbd>：布设下行地雷（需先有炸药储备，最多同时 3 枚，自动瞄准 Boss 横向位置）</li>
               <li><kbd>M</kbd>：开关音效 · <kbd>H</kbd>：打开本说明</li>
             </ul>
             <p>你驾驶的是代号 <strong>Ω-7 暗影刺客</strong>：机体小巧、碰撞体积极小、移速极快，适合深入敌后斩首行动。右侧「战机状态」面板实时显示移速、火力、伤害、射速与当前增益。</p>
@@ -198,10 +204,16 @@
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
                 </tr>
                 <tr>
-                  <td style="color:#f39c12">全屏炸弹</td>
-                  <td>立即消灭所有普通敌机（Boss 除外）</td>
-                  <td>即时</td>
+                  <td style="color:#f39c12">炸药包</td>
+                  <td>炸药储备 +1；按 <kbd>B</kbd> 在屏幕布设下行地雷（对 Boss 造成 4 点伤害）</td>
+                  <td>储备制</td>
                   <td>击落敌机随机 · 友军任务 · 击败 Boss</td>
+                </tr>
+                <tr>
+                  <td style="color:#ff6b35">追踪导弹</td>
+                  <td>立即发射 3 枚追踪导弹，优先锁定 Boss</td>
+                  <td>即时</td>
+                  <td>击落敌机随机 · 击败 Boss（28%）</td>
                 </tr>
                 <tr>
                   <td style="color:#a855f7">穿透激光</td>
